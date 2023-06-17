@@ -1,58 +1,53 @@
-from pyfirmata import Arduino  # pip install pyfirmata
-import pyttsx3  # pip install pyttsx3
-import serial
+from pyfirmata import Arduino # pip install pyfirmata
+import pyttsx3 # pip install pyttsx3
 import speech_recognition as sr  # pip install SpeechRecognition
-import openai  # pip install openai
+import openai # pip instal openai
 import json
 import sys
+import paho.mqtt.client as mqtt  # pip install paho-mqtt
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-# MQTT
-import paho.mqtt.client as mqtt
-
-# Configurações do MQTT
-mqtt_server = "192.168.15.10"
-mqtt_port = 1883
-mqtt_user = "RobsonBrasil"
-mqtt_password = "loboalfa"
-
-# Configuração dos tópicos e aliases
-topicos = {
-    "ESP32/MinhaCasa/QuartoRobson/Interruptor1/Comando": "luz forte",
-    "ESP32/MinhaCasa/QuartoRobson/Interruptor2/Comando": "luz fraca",
-    "ESP32/MinhaCasa/QuartoRobson/Interruptor3/Comando": "cooler",
-    "ESP32/MinhaCasa/QuartoRobson/Interruptor4/Comando": "relé 4",
-    "ESP32/MinhaCasa/QuartoRobson/Interruptor5/Comando": "relé 5",
-    "ESP32/MinhaCasa/QuartoRobson/Interruptor6/Comando": "relé 6",
-    "ESP32/MinhaCasa/QuartoRobson/Interruptor7/Comando": "relé 7",
-    "ESP32/MinhaCasa/QuartoRobson/Interruptor8/Comando": "relé 8"
-}
-
 config_assistente = {
-    "porta_arduino": "COM100",
-    "pino": 4,
+    "porta_arduino" : "COM10",
+    "pino": 8,
     "assistente_falante": True,
     "com_arduino": False,
     "entrada_por_texto": False,
     "lingua": "pt-BR",
-    "voz": 0,
+    "voz":3,
     # caso nao queira falar "assistente" ou "Chat GPT"
-    "sem_palavra_ativadora": True,
-    "sem_palavra_ativadora_chatgpt": True,
+    "sem_palavra_ativadora": False,
+    "sem_palavra_ativadora_chatgpt": False,
     # ajusta ruido do ambiente
-    "ajustar_ambiente_noise": True
+    "ajustar_ambiente_noise": True,
+    # MQTT configuration
+    "mqtt_broker": "192.168.15.10",
+    "mqtt_port": 1883,
+    "mqtt_username": "RobsonBrasil",
+    "mqtt_password": "loboalfa",
+    # Tópicos MQTT para os relés
+    "mqtt_topics": {
+        "ESP32/MinhaCasa/QuartoRobson/Interruptor1/Comando",
+        "ESP32/MinhaCasa/QuartoRobson/Interruptor2/Comando",
+        "ESP32/MinhaCasa/QuartoRobson/Interruptor3/Comando",
+        "ESP32/MinhaCasa/QuartoRobson/Interruptor4/Comando",
+        "ESP32/MinhaCasa/QuartoRobson/Interruptor5/Comando",
+        "ESP32/MinhaCasa/QuartoRobson/Interruptor6/Comando",
+        "ESP32/MinhaCasa/QuartoRobson/Interruptor7/Comando",
+        "ESP32/MinhaCasa/QuartoRobson/Interruptor8/Comando"
+    }
 }
 
-# Inicializar o objeto de síntese de fala
-engine = pyttsx3.init()
+def on_connect(client, userdata, flags, rc):
+    print("Connected with result code " + str(rc))
+    for topic in config_assistente["mqtt_topics"].values():
+        client.subscribe(topic)
 
-# Configurar o cliente MQTT
-client = mqtt.Client()
-client.username_pw_set(mqtt_user, mqtt_password)
-client.connect(mqtt_server, mqtt_port, 60)
+def on_message(client, userdata, msg):
+    print("Received message: " + msg.topic + " " + str(msg.payload))
 
-def falar(texto, engine, voices, voz_escolhida=0):
+def falar(texto, engine, voices, voz_escolhida = 1):
     engine.setProperty('voice', voices[voz_escolhida].id)
     # falando
     engine.say(texto)
@@ -62,7 +57,7 @@ def falar(texto, engine, voices, voz_escolhida=0):
 def generate_answer(messages):
     try:
         response = openai.ChatCompletion.create(
-            # model="gpt-4",
+            #model="gpt-4",
             model="gpt-3.5-turbo",
             messages=messages,
             max_tokens=1000,
@@ -77,38 +72,7 @@ def generate_answer(messages):
         return ["", ""]
 
 def zerarMensagens():
-    return [{"role": "system", "content": "Seu nome é Robson Brasil"}]
-
-def on_connect(client, userdata, flags, rc):
-    print("Conectado ao Broker MQTT")
-    # Inscreva-se nos tópicos MQTT ao se conectar
-    for topic in topicos.keys():
-        client.subscribe(topic)
-
-def on_message(client, userdata, msg):
-    mensagem = msg.payload.decode()
-    print("Mensagem recebida:", mensagem)
-    # Verifique se a mensagem corresponde a um tópico conhecido
-    if msg.topic in topicos.keys():
-        alias = topicos[msg.topic]
-        print("Alias correspondente:", alias)
-        # Processar ação com base no alias
-        if alias == "luz forte":
-            # Lógica para acionar o relé correspondente
-            print("Acionando luz forte...")
-        elif alias == "luz fraca":
-            # Lógica para acionar o relé correspondente
-            print("Acionando luz fraca...")
-        elif alias == "cooler":
-            # Lógica para acionar o relé correspondente
-            print("Acionando cooler...")
-        elif alias.startswith("relé"):
-            # Obter o número do relé do alias
-            rele_num = int(alias.split(" ")[-1])
-            # Lógica para acionar o relé correspondente
-            print(f"Acionando relé {rele_num}...")
-    else:
-        print("Tópico desconhecido:", msg.topic)
+    return [{"role": "system", "content": "Seu nome é Assistente do Robson Brasil"}]
 
 def main():
     if config_assistente["com_arduino"]:
@@ -136,8 +100,8 @@ def main():
     r = sr.Recognizer()
     mic = sr.Microphone()
 
-    sair = {"sair", "jarvis desligar"}
-    chamar_assistente = {"jarvis"}
+    sair = {"sair"}
+    chamar_assistente = {"Jarvis"}
     chamar_assistente_ChatGPT = {"gpt", "chatgpt", "chat gpt"}
     cancelar = ("cancela", "cancelar")
 
@@ -150,19 +114,14 @@ def main():
     comecar.update(chamar_assistente)
     comecar.update(chamar_assistente_ChatGPT)
 
-    falar("Robson Brasil", engine, voices, config_assistente["voz"])
-
-    # Configuração do cliente MQTT
+    falar("Assistente do Robson Brasil Ligando", engine, voices, config_assistente["voz"])
+    
+    # MQTT setup
     client = mqtt.Client()
     client.on_connect = on_connect
     client.on_message = on_message
-
-    # Conexão ao Broker MQTT
-    broker_address = "mqtt.example.com"  # Substitua pelo endereço do seu Broker MQTT
-    broker_port = 1883  # Substitua pela porta do seu Broker MQTT (padrão: 1883)
-    client.connect(broker_address, broker_port)
-
-    # Loop de monitoramento do cliente MQTT
+    client.username_pw_set(config_assistente["mqtt_username"], config_assistente["mqtt_password"])
+    client.connect(config_assistente["mqtt_broker"], config_assistente["mqtt_port"], 60)
     client.loop_start()
 
     while True:
@@ -234,50 +193,6 @@ def main():
             print("ChatGPT:", resposta)
             if (config_assistente["assistente_falante"]):
                 falar(resposta, engine, voices, config_assistente["voz"])
-        
-        elif comando_recebido.lower().startswith("luz forte"):
-            if config_assistente["com_arduino"]:
-                board.digital[config_assistente["pino"]].write(1)
-                print("Ligando luz forte")
-        
-        elif comando_recebido.lower().startswith("luz fraca"):
-            if config_assistente["com_arduino"]:
-                board.digital[config_assistente["pino"]].write(0)
-                print("Desligando luz fraca")
-        
-        elif comando_recebido.lower().startswith("cooler"):
-            if config_assistente["com_arduino"]:
-                # Acione o relé do cooler aqui
-                print("Acionando o cooler")
-        
-        elif comando_recebido.lower().startswith("relé 4"):
-            if config_assistente["com_arduino"]:
-                # Acione o relé 4 aqui
-                print("Acionando o relé 4")
-        
-        elif comando_recebido.lower().startswith("relé 5"):
-            if config_assistente["com_arduino"]:
-                # Acione o relé 5 aqui
-                print("Acionando o relé 5")
-        
-        elif comando_recebido.lower().startswith("relé 6"):
-            if config_assistente["com_arduino"]:
-                # Acione o relé 6 aqui
-                print("Acionando o relé 6")
-        
-        elif comando_recebido.lower().startswith("relé 7"):
-            if config_assistente["com_arduino"]:
-                # Acione o relé 7 aqui
-                print("Acionando o relé 7")
-        
-        elif comando_recebido.lower().startswith("relé 8"):
-            if config_assistente["com_arduino"]:
-                # Acione o relé 8 aqui
-                print("Acionando o relé 8")
-        
-        else:
-            print("Comando não reconhecido:", comando_recebido)
-
     return "Fim"
 
 if __name__ == '__main__':
