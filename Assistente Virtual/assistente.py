@@ -1,6 +1,10 @@
 import speech_recognition as sr
 import pyttsx3
 import paho.mqtt.client as mqtt
+import sys
+import datetime
+
+sys.stdout.reconfigure(encoding='utf-8')
 
 # Configurações do MQTT
 mqtt_server = "192.168.15.10"
@@ -32,25 +36,65 @@ topic_aliases = {
     "ESP32/MinhaCasa/QuartoRobson/Interruptor8/Comando": "refletor"
 }
 
-# Configurar o reconhecimento de voz
-recognizer = sr.Recognizer()
+    # falar
+texto_fala = pyttsx3.init()
 
-# Configurar a síntese de voz
-engine = pyttsx3.init()
-voices = engine.getProperty('voices')
-engine.setProperty('rate', 180)  # velocidade 120 = lento
+def falar(audio):
+    rate =  texto_fala.getProperty('rate')
+    texto_fala.setProperty('rate', 120)
+    voices = texto_fala.getProperty('voices')
+    texto_fala.setProperty('voice', voices[3].id) # Trocar as vozes
+    texto_fala.say(audio)
+    texto_fala.runAndWait()
+    
+def hora():
+    Hora = datetime.datetime.now().strftime("%H horas e,:%#M minutos,")
+    falar("Agora são,")
+    falar(Hora)
+    
+def obter_nome_mes(numero_mes):
+    meses = {
+        1: "Janeiro!",
+        2: "Fevereiro!",
+        3: "Março!",
+        4: "Abril!",
+        5: "Maio!",
+        6: "Junho,",
+        7: "Julho!",
+        8: "Agosto!",
+        9: "Setembro!",
+        10: "Outubro!",
+        11: "Novembro!",
+        12: "Dezembro!"
+    }
+    return meses.get(numero_mes, "Mês inválido")
 
-for indice in range(len(voices)):  # listar vozes
-    print(f"Voz {indice}: {voices[indice].id}")
+def data():
+    now = datetime.datetime.now()
+    dia = str(now.day)
+    mes = obter_nome_mes(now.month)
+    ano = str(now.year)
+    
+    falar("A data atual é,...." + dia,)
+    falar("de-----,   " + mes,)
+    falar("de----- ,  " + ano,)
 
-# ouvir
-    r = sr.Recognizer()
-    mic = sr.Microphone()
-
-# Configurar o cliente MQTT
-client = mqtt.Client()
-client.username_pw_set(mqtt_user, mqtt_password)
-client.connect(mqtt_server, mqtt_port, 60)
+def bem_vindo():
+    falar ("Olá mestre, seja bem vindo de volta,")
+    hora()
+    data()
+    
+    periodo_do_dia = datetime.datetime.now().hour
+    
+    if periodo_do_dia >= 6 and periodo_do_dia < 12:
+        falar ("Bom dia mestre,")
+    elif periodo_do_dia >= 12 and periodo_do_dia < 18:
+        falar ("Boa tarde mestre,")
+    elif periodo_do_dia >= 18 and periodo_do_dia <= 24:
+        falar ("Boa noite mestre,")
+        falar("Jarvis a sua disposição! Diga-me como posso ajudá-lo hoje?,")
+    else:
+        falar("Mestre, vá dormir, já é de madrugada!,")
 
 assistant_active = True
 
@@ -58,45 +102,35 @@ def on_message(client, userdata, message):
     global assistant_active
     payload = message.payload.decode("utf-8")
 
-    if message.topic == "voiceAssistant/enable":
-        if payload == "3":
-            assistant_active = False
-        else:
-            assistant_active = True  # Corrected the indexing error here
+    client.on_message = on_message
+    client.subscribe("voiceAssistant/enable")
+    client.subscribe("voiceAssistant/voice")
+    client.loop_start()
 
-    if message.topic == "voiceAssistant/voice":
-        voice_index = config_assistente["voz"]  # Convert payload to an integer
-        if voice_index < len(voices):
-            engine.setProperty('voice', voices[voice_index].id)
-            engine.say(texto)
-            engine.runAndWait()
-            engine.stop()
-        else:
-            print("Invalid voice index")
-
-client.on_message = on_message
-client.subscribe("voiceAssistant/enable")
-client.subscribe("voiceAssistant/voice")
-client.loop_start()
-
-def listen_and_execute():
+def microfone():
+    r = sr.Recognizer()
+    
     with sr.Microphone() as source:
-        r.pause_threshold = 100
-        print("Ouvindo...")
-        audio = recognizer.listen(source)
-        
+        r.pause_threshold = 1
+        audio = r.listen(source)
+    
     try:
-        command = recognizer.recognize_google(audio, language='pt-BR')
-        print(f"Você disse: {command}")
-        process_command(command)
+        print("Reconhecendo o command")
+        command = r.recognize_google(audio, language='pt-BR')
+        print(command)
+
+    except Exception as e:
+        print(e)
+        falar(" Por favor Repita, não entendi,")
         
-    except sr.UnknownValueError:
-        print("Não entendi, por favor repita.")
-        engine.say("Não entendi, por favor repita.")
-        
-    except sr.RequestError:
-        print("Erro ao tentar reconhecer o comando.")
-        engine.say("Erro ao tentar reconhecer o comando.")
+        return "None"
+    
+    return command
+
+# Configurar o cliente MQTT
+client = mqtt.Client()
+client.username_pw_set(mqtt_user, mqtt_password)
+client.connect(mqtt_server, mqtt_port, 60)
 
 def process_command(command):
     command = command.lower()
@@ -105,7 +139,7 @@ def process_command(command):
         alias = topic_aliases[topic]
         if f"acender {alias}" in command:
             client.publish(topic, "1")
-            engine.say(f"Ligando o {alias}.")
+            engine.say(f"Ligando o {alias}")
             engine.runAndWait()
             return
 
@@ -115,9 +149,33 @@ def process_command(command):
             engine.runAndWait()
             return
 
-    engine.say("Comando não reconhecido.")
+    falar ("command não reconhecido.")
     engine.runAndWait()
 
-while True:
-    if assistant_active:
-        listen_and_execute()
+if __name__ == "__main__":
+    bem_vindo()
+    
+    while True:
+        print("Estou Escutando....")
+        if assistant_active:
+            command = microfone().lower()
+        
+        if 'como você está' in command:
+            falar("Estou bem, obrigado e você,")
+            falar("o que posso fazer para ajudá-lo mestre,")
+        
+        elif 'hora' in command:
+            hora()
+
+        elif 'data' in command:
+            data()
+        
+        for topic in relay_topics:    
+            alias = topic_aliases[topic]
+            if f"acender {alias}" in command:
+                client.publish(topic, "1")
+                falar(f"Ligando o {alias}")
+
+            elif f"apagar {alias}" in command:
+                client.publish(topic, "0")
+                falar(f"Apagando o {alias}")

@@ -21,27 +21,60 @@ config_assistente = {
     "sem_palavra_ativadora_chatgpt": False,
     # ajusta ruido do ambiente
     "ajustar_ambiente_noise": True,
-    # MQTT configuration
-    "mqtt_broker": "192.168.15.10",
-    "mqtt_port": 1883,
-    "mqtt_username": "RobsonBrasil",
-    "mqtt_password": "loboalfa",
-    # Tópicos MQTT para os relés
-    "mqtt_topics": {
-        "ESP32/MinhaCasa/QuartoRobson/Interruptor1/Comando",
-        "ESP32/MinhaCasa/QuartoRobson/Interruptor2/Comando",
-        "ESP32/MinhaCasa/QuartoRobson/Interruptor3/Comando",
-        "ESP32/MinhaCasa/QuartoRobson/Interruptor4/Comando",
-        "ESP32/MinhaCasa/QuartoRobson/Interruptor5/Comando",
-        "ESP32/MinhaCasa/QuartoRobson/Interruptor6/Comando",
-        "ESP32/MinhaCasa/QuartoRobson/Interruptor7/Comando",
-        "ESP32/MinhaCasa/QuartoRobson/Interruptor8/Comando"
-    }
 }
+
+# Configurações do MQTT
+mqtt_server = "192.168.15.10"
+mqtt_port = 1883
+mqtt_user = "RobsonBrasil"
+mqtt_password = "loboalfa"
+
+    # Tópicos MQTT para os relés
+relay_topics = [
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor1/Comando",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor2/Comando",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor3/Comando",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor4/Comando",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor5/Comando",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor6/Comando",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor7/Comando",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor8/Comando"
+    ]
+
+# Dicionário de aliases para os tópicos
+topic_aliases = {
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor1/Comando": "lâmpada forte",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor2/Comando": "lâmpada fraca",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor3/Comando": "cooler",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor4/Comando": "relé 4",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor5/Comando": "relé 5",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor6/Comando": "relé 6",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor7/Comando": "relé 7",
+    "ESP32/MinhaCasa/QuartoRobson/Interruptor8/Comando": "refletor"
+}
+
+def process_command(command):
+    command = command.lower()
+    
+    for i, topic in enumerate(relay_topics):
+        alias = topic_aliases[topic]
+        
+        if f"acender {alias}" in command:
+            client.publish(topic, "1")
+            engine.say(f"Ligando o {alias}.")
+            engine.runAndWait()
+            return
+
+        if f"apagar {alias}" in command:
+            client.publish(topic, "0")
+            engine.say(f"Apagando o {alias}.")
+            engine.runAndWait()
+            return
+
 
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))
-    for topic in config_assistente["mqtt_topics"].values():
+    for topic in config_assistente["relay_topics"].values():
         client.subscribe(topic)
 
 def on_message(client, userdata, msg):
@@ -86,6 +119,9 @@ def main():
     f = open('chat_key.json')
     chave = json.load(f)
     openai.api_key = chave['api_key']
+    
+    # Configurar o reconhecimento de voz
+recognizer = sr.Recognizer()
 
     # falar
     engine = pyttsx3.init()
@@ -102,10 +138,10 @@ def main():
 
     sair = {"sair"}
     chamar_assistente = {"Jarvis"}
-    chamar_assistente_ChatGPT = {"gpt", "chatgpt", "chat gpt"}
+    chamar_assistente_ChatGPT = {"gpt", "chatgpt", "chat gpt", "lâmpada forte"}
     cancelar = ("cancela", "cancelar")
 
-    comando1 = {"ligar luz"}
+    comando1 = {"acender lâmpada forte"}
     comando2 = {"desligar luz"}
     comandos = [comando1, comando2]
 
@@ -116,14 +152,14 @@ def main():
 
     falar("Assistente do Robson Brasil Ligando", engine, voices, config_assistente["voz"])
     
-    # MQTT setup
+# Configurar o cliente MQTT
     client = mqtt.Client()
-    client.on_connect = on_connect
-    client.on_message = on_message
-    client.username_pw_set(config_assistente["mqtt_username"], config_assistente["mqtt_password"])
-    client.connect(config_assistente["mqtt_broker"], config_assistente["mqtt_port"], 60)
+    client.username_pw_set(mqtt_user, mqtt_password)
+    client.connect(mqtt_server, mqtt_port, 60)
     client.loop_start()
-
+    
+    assistant_active = True
+    
     while True:
         print("")
         print("Chamadas", comecar)
@@ -193,7 +229,7 @@ def main():
             print("ChatGPT:", resposta)
             if (config_assistente["assistente_falante"]):
                 falar(resposta, engine, voices, config_assistente["voz"])
-    return "Fim"
+            return "Fim"
 
 if __name__ == '__main__':
     texto = main()

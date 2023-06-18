@@ -8,13 +8,13 @@ config_assistente = {
     "porta_arduino" : "COM10",
     "pino": 8,
     "assistente_falante": True,
-    "com_arduino": True,
+    "com_arduino": False,
     "entrada_por_texto": False,
     "lingua": "pt-BR",
     "voz":1,
     # caso nao queira falar "assistente" ou "Chat GPT"
-    "sem_palavra_ativadora": False,
-    "sem_palavra_ativadora_chatgpt": False,
+    "sem_palavra_ativadora": True,
+    "sem_palavra_ativadora_chatgpt": True,
     # ajusta ruido do ambiente
     "ajustar_ambiente_noise": True
 }
