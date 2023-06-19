@@ -1,4 +1,0 @@
-pyfirmata
-pyttsx3
-SpeechRecognition
-openai

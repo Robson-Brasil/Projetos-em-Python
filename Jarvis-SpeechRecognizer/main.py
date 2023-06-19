@@ -4,6 +4,7 @@ import paho.mqtt.client as mqtt
 import sys
 import datetime
 import time
+import pyaudio
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -45,15 +46,15 @@ paused = False
 
 def falar(audio):
     rate = texto_fala.getProperty('rate')
-    texto_fala.setProperty('rate', 180)
+    texto_fala.setProperty('rate', 160)
     voices = texto_fala.getProperty('voices')
-    texto_fala.setProperty('voice', voices[3].id) # Trocar as vozes
+    texto_fala.setProperty('voice', voices[3].id)# Trocar as vozes
     texto_fala.say(audio)
     texto_fala.runAndWait()
     time.sleep(0.7)  # Adiciona uma pausa de 1 segundo após cada fala
 
 def hora():
-    Hora = datetime.datetime.now().strftime("%#H horas e,:%#M minutos,")
+    Hora: str = datetime.datetime.now().strftime("%#H horas e,:%#M minutos,")
     falar("Agora são,")
     falar(Hora)
 
@@ -64,7 +65,7 @@ def obter_nome_mes(numero_mes):
         3: "Março!",
         4: "Abril!",
         5: "Maio!",
-        6: "Junho,",
+        6: "Junho!",
         7: "Julho!",
         8: "Agosto!",
         9: "Setembro!",
@@ -80,12 +81,12 @@ def data():
     mes = obter_nome_mes(now.month)
     ano = str(now.year)
 
-    falar("A data de hoje é....," + dia,)
-    falar("de-----,   " + mes,)
-    falar("de----- ,  " + ano,)
+    falar("A data de hoje é....," + dia)
+    falar("de-----,   " + mes)
+    falar("de----- ,  " + ano)
 
 def bem_vindo():
-    falar("Olá Robson Brasil, bem vindo de volta,")
+    falar("Olá Robson Brasil, bem-vindo de volta!")
     hora()
     data()
 
@@ -112,7 +113,7 @@ def microfone():
     try:
         with sr.Microphone() as source:
             r.pause_threshold = 1
-            r.adjust_for_ambient_noise(source, duration=5.0)
+            r.adjust_for_ambient_noise(source, duration=1.0)
             audio = r.listen(source)
             print("Reconhecendo o Comando")
             comando = r.recognize_google(audio, language='pt-BR')
@@ -141,25 +142,26 @@ if __name__ == "__main__":
     while True:
         print("Estou Escutando....")
         if assistant_active:
-            comando = microfone().lower()
-
-        if 'como você está' in comando:
+            comando = microfone()
+        if comando is not None:
+            comando = comando.lower()
+        if comando is not None and 'como você está' in comando:
             falar("Estou bem, obrigado. E você?")
             falar("O que posso fazer para ajudá-lo, mestre?")
-        elif 'hora' in comando:
+        elif comando is not None and 'hora' in comando:
             hora()
-        elif 'data' in comando:
+        elif comando is not None and 'data' in comando:
             data()
 
         for topic in relay_topics:
             alias = topic_aliases[topic]
-            if f"acender {alias}" in comando:
+            if comando is not None and f"acender {alias}" in comando:
                 client.publish(topic, "1")
                 falar(f"Ligando o {alias}")
-            elif f"apagar {alias}" in comando:
+            elif comando is not None and f"apagar {alias}" in comando:
                 client.publish(topic, "0")
                 falar(f"Apagando o {alias}")
-            elif f"temperatura {alias}" in comando:
+            elif comando is not None and f"temperatura {alias}" in comando:
                 client.publish(topic, "get_temp_data")  # Publicar mensagem para obter dados de temperatura
                 client.publish(topic, "get_hum_data")  # Publicar mensagem para obter dados de umidade
                 # Aguardar a chegada dos dados do sensor
