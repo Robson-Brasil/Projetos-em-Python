@@ -5,6 +5,7 @@ import sys
 import datetime
 import time
 import pyaudio
+import threading
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -103,11 +104,14 @@ def bem_vindo():
 
 assistant_active = True
 
-def on_message(client, userdata, message):
+def on_message(message):
     global assistant_active
     payload = message.payload.decode("utf-8")
 
 def microfone():
+
+    comando = None  # Added the initialization of 'comando'
+
     r = sr.Recognizer()
 
     try:
@@ -136,39 +140,88 @@ client = mqtt.Client()
 client.username_pw_set(mqtt_user, mqtt_password)
 client.connect(mqtt_server, mqtt_port, 60)
 
+def stop_assistant():
+    global assistant_active
+    assistant_active = False
+    falar("Assistente pausado.")
+
+    tempo_pausa = 10  # Tempo de pausa em segundos
+
+    def retomar_execucao():
+        time.sleep(tempo_pausa)
+        global assistant_active
+        assistant_active = True
+        falar("Retomando a execução.")
+
+    # Agendar a função de retomada após o tempo de pausa
+    thread_retomada = threading.Timer(tempo_pausa, retomar_execucao)
+    thread_retomada.start()
+
+    # Ouça comandos enquanto a thread de retomada estiver ativa
+    while thread_retomada.is_alive():
+        comando = microfone()  # Chama a função microfone para obter o comando
+        if comando is not None:
+            # Novo comando recebido durante a pausa
+            thread_retomada.cancel()  # Cancelar a retomada da execução
+            return
+
+    # A thread de retomada concluiu a pausa, continuar a execução
+    texto_fala.runAndWait()
+
+def activate_assistant():
+    global assistant_active
+    assistant_active = True
+    falar("Assistente ativado.")
+    texto_fala.runAndWait()
+
+def shutdown_assistant():
+    falar("Desligando o assistente.")
+    sys.exit()
+    texto_fala.runAndWait()
+
 if __name__ == "__main__":
     bem_vindo()
 
-    while True:
-        print("Estou Escutando....")
-        if assistant_active:
-            comando = microfone()
-        if comando is not None:
-            comando = comando.lower()
-        if comando is not None and 'como você está' in comando:
-            falar("Estou bem, obrigado. E você?")
-            falar("O que posso fazer para ajudá-lo, mestre?")
-        elif comando is not None and 'hora' in comando:
-            hora()
-        elif comando is not None and 'data' in comando:
-            data()
+    try:
+        while True:
+            print("Estou Escutando....")
+            if assistant_active:
+                comando = microfone()
+            if comando is not None:
+                comando = comando.lower()
+            if comando is not None and 'como você está' in comando:
+                falar("Estou bem, obrigado. E você?")
+                falar("O que posso fazer para ajudá-lo, mestre?")
+            elif comando is not None and 'hora' in comando:
+                hora()
+            elif comando is not None and 'data' in comando:
+                data()
+            elif comando is not None and 'fazer uma pausa' in comando:
+                stop_assistant()
+            elif comando is not None and 'ativar' in comando:
+                activate_assistant()
+            elif comando is not None and 'desligar' in comando:
+                shutdown_assistant()
 
-        for topic in relay_topics:
-            alias = topic_aliases[topic]
-            if comando is not None and f"acender {alias}" in comando:
-                client.publish(topic, "1")
-                falar(f"Ligando o {alias}")
-            elif comando is not None and f"apagar {alias}" in comando:
-                client.publish(topic, "0")
-                falar(f"Apagando o {alias}")
-            elif comando is not None and f"temperatura {alias}" in comando:
-                client.publish(topic, "get_temp_data")  # Publicar mensagem para obter dados de temperatura
-                client.publish(topic, "get_hum_data")  # Publicar mensagem para obter dados de umidade
-                # Aguardar a chegada dos dados do sensor
-                # Substitua as linhas abaixo pela lógica necessária para receber os dados do sensor
-                str_temp_data = "<dados_de_temperatura>"  # Substitua com os dados reais
-                str_hum_data = "<dados_de_umidade>"  # Substitua com os dados reais
-                if str_temp_data is not None:
-                    falar("Aguarde um momento enquanto eu verifico a temperatura para você: " + str_temp_data)
-                else:
-                    falar("Desculpe, não foi possível obter os dados de temperatura no momento.")
+            for topic in relay_topics:
+                alias = topic_aliases[topic]
+                if comando is not None and f"acender {alias}" in comando:
+                    client.publish(topic, "1")
+                    falar(f"Ligando o {alias}")
+                elif comando is not None and f"apagar {alias}" in comando:
+                    client.publish(topic, "0")
+                    falar(f"Apagando o {alias}")
+                elif comando is not None and f"temperatura {alias}" in comando:
+                    client.publish(topic, "get_temp_data")  # Publicar mensagem para obter dados de temperatura
+                    client.publish(topic, "get_hum_data")  # Publicar mensagem para obter dados de umidade
+                    # Aguardar a chegada dos dados do sensor
+                    # Substitua as linhas abaixo pela lógica necessária para receber os dados do sensor
+                    str_temp_data = "<dados_de_temperatura>"  # Substitua com os dados reais
+                    str_hum_data = "<dados_de_umidade>"  # Substitua com os dados reais
+                    if str_temp_data is not None:
+                        falar("Aguarde um momento enquanto eu verifico a temperatura para você: " + str_temp_data)
+                    else:
+                        falar("Desculpe, não foi possível obter os dados de temperatura no momento.")
+
+    except KeyboardInterrupt:
+        pass
