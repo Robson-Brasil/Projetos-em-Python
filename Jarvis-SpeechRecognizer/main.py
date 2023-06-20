@@ -10,6 +10,9 @@ import keyboard
 import wikipedia
 import pywhatkit
 import requests
+import json
+from gtts import gTTS
+import os
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -197,8 +200,46 @@ def shutdown_assistant():
     falar("Desligando o assistente.")
     sys.exit()
 
+def obter_previsao_tempo(localizacao, chave_api):
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={localizacao}&appid={chave_api}&units=metric"
+    response = requests.get(url)
+    dados = response.json()
+
+    # Dicionário de tradução das descrições do tempo
+    traducoes = {
+        "clear sky": "céu limpo",
+        "few clouds": "poucas nuvens",
+        "scattered clouds": "nuvens dispersas",
+        "broken clouds": "nuvens quebradas",
+        "shower rain": "chuva fraca",
+        "rain": "chuva",
+        "thunderstorm": "trovoada",
+        "snow": "neve",
+        "mist": "névoa",
+    }
+
+    # Verifique se a requisição foi bem-sucedida
+    if response.status_code == 200:
+        # Extraia as informações relevantes da resposta JSON
+        temperatura = dados["main"]["temp"]
+        descricao = dados["weather"][0]["description"]
+        descricao_traduzida = traducoes.get(descricao, descricao)  # Utiliza o dicionário de traduções ou mantém a descrição original
+        umidade = dados["main"]["humidity"]
+
+        return f"A temperatura em {localizacao} é de {temperatura}°C. {descricao_traduzida}. A umidade é de {umidade}%."
+    else:
+        return "Não foi possível obter a previsão do tempo."
+
+localizacao = "Manaus,BR"  # Substitua pela localização desejada
+chave_api = "b7d14b931a96d7a64ea1aba822899328"  # Substitua pela sua chave de API da OpenWeatherMap
+
+previsao = obter_previsao_tempo(localizacao, chave_api)
+print(previsao)
+falar(previsao)
+
 if __name__ == "__main__":
     bem_vindo()
+    obter_previsao_tempo(localizacao, chave_api)
 
     try:
         while True:
@@ -211,17 +252,23 @@ if __name__ == "__main__":
             if comando is not None and 'como você está' in comando:
                 falar("Estou bem, obrigado. E você?")
                 falar("O que posso fazer para ajudá-lo, mestre?")
+                texto_fala.runAndWait()
             elif comando is not None and 'hora' in comando:
                 hora()
+                texto_fala.runAndWait()
             elif comando is not None and 'data' in comando:
                 data()
+                texto_fala.runAndWait()
 
             elif comando is not None and 'fazer uma pausa' in comando:
                 stop_assistant()
+                texto_fala.runAndWait()
             elif comando is not None and 'ativar' in comando:
                 activate_assistant()
+                texto_fala.runAndWait()
             elif comando is not None and 'desligar' in comando:
                 shutdown_assistant()
+                texto_fala.runAndWait()
 
             elif comando is not None and 'procurar por' in comando:
                 procurar = comando.replace('procurar por', '')
@@ -230,11 +277,17 @@ if __name__ == "__main__":
                 print(resultado)
                 falar(resultado)
                 texto_fala.runAndWait()
+
             elif comando is not None and 'toque' in comando:
                 musica = comando.replace('toque', '')
                 resultado = pywhatkit.playonyt(musica)
                 falar('Tocando música')
                 texto_fala.runAndWait()
+
+            elif comando is not None and 'previsão do tempo' in comando:
+                previsao = obter_previsao_tempo(localizacao, chave_api)
+                print(previsao)
+                falar(previsao)
 
             for topic in relay_topics:
                 alias = topic_aliases[topic]
