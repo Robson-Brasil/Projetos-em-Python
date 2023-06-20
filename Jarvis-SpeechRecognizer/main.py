@@ -6,6 +6,10 @@ import datetime
 import time
 import pyaudio
 import threading
+import keyboard
+import wikipedia
+import pywhatkit
+import requests
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -43,6 +47,9 @@ topic_aliases = {
 
 # falar
 texto_fala = pyttsx3.init()
+
+# Variável para controlar se o programa principal está em pausa ou não
+pause = False
 
 def falar(audio):
     rate = texto_fala.getProperty('rate')
@@ -139,17 +146,48 @@ client = mqtt.Client()
 client.username_pw_set(mqtt_user, mqtt_password)
 client.connect(mqtt_server, mqtt_port, 60)
 
-def stop_assistant():
-    global assistant_active
-    assistant_active = False
-    falar("Assistente pausado.")
+def stop_assistant(falar_mensagem=True):
+    assistant_active = [True]  # Inicialmente, o assistente está ativo
+    if falar_mensagem:
+        falar("Assistente pausado.")
 
     tempo_pausa = 10  # Tempo de pausa em segundos
-    time.sleep(tempo_pausa)  # Pausa a execução do programa por 'tempo_pausa' segundos
 
-    assistant_active = True
-    falar("Assistente reativado.")
+    def retomar_execucao(assistant_active):
+        assistant_active[0] = True
 
+    # Monitorar a tecla "A" e a palavra "ativar" para interromper a pausa e reativar o assistente
+    def on_key_press(key):
+        if key.name == "a":
+            retomar_execucao(assistant_active)
+        else:
+            recognizer = sr.Recognizer()
+            with sr.Microphone() as source:
+                print("Diga algo...")
+                audio = recognizer.listen(source)
+
+            try:
+                comando = recognizer.recognize_google(audio, language="pt-BR")
+                print("Comando reconhecido:", comando)
+                comando = comando.lower()
+
+                if "ativar" in comando:
+                    retomar_execucao(assistant_active)
+            except sr.UnknownValueError:
+                print("Não foi possível reconhecer o comando.")
+
+    keyboard.on_press(on_key_press)
+
+    # Agendar a função de retomada após o tempo de pausa
+    thread_retomada = threading.Timer(tempo_pausa, retomar_execucao, args=(assistant_active,))
+    thread_retomada.start()
+
+    # Esperar até que a thread de retomada termine ou a tecla seja pressionada
+    thread_retomada.join()
+
+    if falar_mensagem:
+        falar("Assistente reativado.")
+    texto_fala.runAndWait()
 def activate_assistant():
     global assistant_active
     assistant_active = True
@@ -169,6 +207,7 @@ if __name__ == "__main__":
                 comando = microfone()
             if comando is not None:
                 comando = comando.lower()
+
             if comando is not None and 'como você está' in comando:
                 falar("Estou bem, obrigado. E você?")
                 falar("O que posso fazer para ajudá-lo, mestre?")
@@ -176,12 +215,26 @@ if __name__ == "__main__":
                 hora()
             elif comando is not None and 'data' in comando:
                 data()
+
             elif comando is not None and 'fazer uma pausa' in comando:
                 stop_assistant()
             elif comando is not None and 'ativar' in comando:
                 activate_assistant()
             elif comando is not None and 'desligar' in comando:
                 shutdown_assistant()
+
+            elif comando is not None and 'procurar por' in comando:
+                procurar = comando.replace('procurar por', '')
+                wikipedia.set_lang('pt')
+                resultado = wikipedia.summary(procurar, 2)
+                print(resultado)
+                falar(resultado)
+                texto_fala.runAndWait()
+            elif comando is not None and 'toque' in comando:
+                musica = comando.replace('toque', '')
+                resultado = pywhatkit.playonyt(musica)
+                falar('Tocando música')
+                texto_fala.runAndWait()
 
             for topic in relay_topics:
                 alias = topic_aliases[topic]
