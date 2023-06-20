@@ -231,7 +231,7 @@ def obter_previsao_tempo(localizacao,chave_api):
         return "Não foi possível obter a previsão do tempo."
 
 localizacao = "Manaus,BR"  # Substitua pela localização desejada
-chave_api = "troquesuaapikeyaqui faça o login no ste e pegue a sua"  # Substitua pela sua chave de API da OpenWeatherMap
+chave_api = "troque sua apikey aqui faça o login no ste e pegue a sua"  # Substitua pela sua chave de API da OpenWeatherMap
 
 previsao = obter_previsao_tempo(localizacao, chave_api)
 print(previsao)
