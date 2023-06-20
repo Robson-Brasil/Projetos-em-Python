@@ -13,7 +13,6 @@ import requests
 import json
 from gtts import gTTS
 import os
-import credenciais
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -201,8 +200,8 @@ def shutdown_assistant():
     falar("Desligando o assistente.")
     sys.exit()
 
-def obter_previsao_tempo(localizacao, chave_api):
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={localizacao}&appid={credenciais.chave_api}&units=metric"
+def obter_previsao_tempo(localizacao,chave_api):
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={localizacao}&appid={chave_api}&units=metric"
     response = requests.get(url)
     dados = response.json()
 
@@ -232,7 +231,7 @@ def obter_previsao_tempo(localizacao, chave_api):
         return "Não foi possível obter a previsão do tempo."
 
 localizacao = "Manaus,BR"  # Substitua pela localização desejada
-
+chave_api = "troquesuaapikeyaqui faça o login no ste e pegue a sua"  # Substitua pela sua chave de API da OpenWeatherMap
 
 previsao = obter_previsao_tempo(localizacao, chave_api)
 print(previsao)
@@ -240,7 +239,7 @@ falar(previsao)
 
 if __name__ == "__main__":
     bem_vindo()
-    obter_previsao_tempo(localizacao, chave_api)
+    obter_previsao_tempo(localizacao,chave_api)
 
     try:
         while True:

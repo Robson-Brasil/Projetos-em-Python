@@ -1,1 +1,0 @@
-chave_api = "b7d14b931a96d7a64ea1aba822899328"  # Substitua pela sua chave de API da OpenWeatherMap
