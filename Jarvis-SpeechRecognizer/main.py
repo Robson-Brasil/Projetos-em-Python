@@ -43,7 +43,6 @@ topic_aliases = {
 
 # falar
 texto_fala = pyttsx3.init()
-paused = False
 
 def falar(audio):
     rate = texto_fala.getProperty('rate')
@@ -52,7 +51,7 @@ def falar(audio):
     texto_fala.setProperty('voice', voices[3].id)# Trocar as vozes
     texto_fala.say(audio)
     texto_fala.runAndWait()
-    time.sleep(0.7)  # Adiciona uma pausa de 1 segundo após cada fala
+    time.sleep(0.1)  # Adiciona uma pausa de 1 segundo após cada fala
 
 def hora():
     Hora: str = datetime.datetime.now().strftime("%#H horas e,:%#M minutos,")
@@ -146,38 +145,19 @@ def stop_assistant():
     falar("Assistente pausado.")
 
     tempo_pausa = 10  # Tempo de pausa em segundos
+    time.sleep(tempo_pausa)  # Pausa a execução do programa por 'tempo_pausa' segundos
 
-    def retomar_execucao():
-        time.sleep(tempo_pausa)
-        global assistant_active
-        assistant_active = True
-        falar("Retomando a execução.")
-
-    # Agendar a função de retomada após o tempo de pausa
-    thread_retomada = threading.Timer(tempo_pausa, retomar_execucao)
-    thread_retomada.start()
-
-    # Ouça comandos enquanto a thread de retomada estiver ativa
-    while thread_retomada.is_alive():
-        comando = microfone()  # Chama a função microfone para obter o comando
-        if comando is not None:
-            # Novo comando recebido durante a pausa
-            thread_retomada.cancel()  # Cancelar a retomada da execução
-            return
-
-    # A thread de retomada concluiu a pausa, continuar a execução
-    texto_fala.runAndWait()
+    assistant_active = True
+    falar("Assistente reativado.")
 
 def activate_assistant():
     global assistant_active
     assistant_active = True
     falar("Assistente ativado.")
-    texto_fala.runAndWait()
 
 def shutdown_assistant():
     falar("Desligando o assistente.")
     sys.exit()
-    texto_fala.runAndWait()
 
 if __name__ == "__main__":
     bem_vindo()
