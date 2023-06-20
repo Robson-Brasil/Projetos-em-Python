@@ -1,18 +1,15 @@
-import speech_recognition as sr
-import pyttsx3
-import paho.mqtt.client as mqtt
-import sys
 import datetime
-import time
-import pyaudio
+import sys
 import threading
+import time
+
 import keyboard
-import wikipedia
+import paho.mqtt.client as mqtt
+import pyttsx3
 import pywhatkit
 import requests
-import json
-from gtts import gTTS
-import os
+import speech_recognition as sr
+import wikipedia
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -54,19 +51,22 @@ texto_fala = pyttsx3.init()
 # Variável para controlar se o programa principal está em pausa ou não
 pause = False
 
+
 def falar(audio):
     rate = texto_fala.getProperty('rate')
     texto_fala.setProperty('rate', 160)
     voices = texto_fala.getProperty('voices')
-    texto_fala.setProperty('voice', voices[3].id)# Trocar as vozes
+    texto_fala.setProperty('voice', voices[3].id)  # Trocar as vozes
     texto_fala.say(audio)
     texto_fala.runAndWait()
     time.sleep(0.1)  # Adiciona uma pausa de 1 segundo após cada fala
+
 
 def hora():
     Hora: str = datetime.datetime.now().strftime("%#H horas e,:%#M minutos,")
     falar("Agora são,")
     falar(Hora)
+
 
 def obter_nome_mes(numero_mes):
     meses = {
@@ -85,6 +85,7 @@ def obter_nome_mes(numero_mes):
     }
     return meses.get(numero_mes, "Mês inválido")
 
+
 def data():
     now = datetime.datetime.now()
     dia = str(now.day)
@@ -94,6 +95,7 @@ def data():
     falar("A data de hoje é....," + dia)
     falar("de-----,   " + mes)
     falar("de----- ,  " + ano)
+
 
 def bem_vindo():
     falar("Olá Robson Brasil, bem-vindo de volta!")
@@ -111,14 +113,16 @@ def bem_vindo():
     else:
         falar("Mestre, vá dormir, já é de madrugada!,")
 
+
 assistant_active = True
+
 
 def on_message(message):
     global assistant_active
     payload = message.payload.decode("utf-8")
 
-def microfone():
 
+def microfone():
     comando = None  # Added the initialization of 'comando'
 
     r = sr.Recognizer()
@@ -134,27 +138,76 @@ def microfone():
             print(comando)
             if 'jarvis' in comando:
                 comando = comando.replace('jarvis', '')
-                #texto_fala.say(comandoo)
+                # texto_fala.say(comandoo)
                 texto_fala.runAndWait()
 
     except Exception as e:
         print(e)
-        #falar(" Por favor, repita. Não entendi.")
+        # falar(" Por favor, repita. Não entendi.")
         return None
 
     return comando
+
 
 # Configurar o cliente MQTT
 client = mqtt.Client()
 client.username_pw_set(mqtt_user, mqtt_password)
 client.connect(mqtt_server, mqtt_port, 60)
 
+
+def definir_tempo_pausa():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        falar("Diga o tempo de pausa desejado:")
+        audio = recognizer.listen(source)
+
+    try:
+        texto = recognizer.recognize_google(audio, language="pt-BR")
+        tempo_pausa = extrair_valor_tempo(
+            texto)  # Implemente a função extrair_valor_tempo() para converter a entrada em um valor numérico de tempo.
+        falar(f"Tempo de pausa definido como {tempo_pausa} segundos.")
+        return tempo_pausa
+    except sr.UnknownValueError:
+        print("Não foi possível entender a entrada de voz.")
+    except sr.RequestError:
+        print("Não foi possível se conectar ao serviço de reconhecimento de voz.")
+    return None
+
+
+def extrair_valor_tempo(texto):
+    palavras = texto.split()  # Divide o texto em palavras
+
+    # Procura pela palavra "segundos" ou "minutos"
+    if "segundos" in palavras:
+        indice = palavras.index("segundos")
+        if indice > 0:
+            try:
+                tempo = int(palavras[indice - 1])  # Obtém o valor numérico antes da palavra "segundos"
+                return tempo
+            except ValueError:
+                pass
+
+    if "minutos" in palavras:
+        indice = palavras.index("minutos")
+        if indice > 0:
+            try:
+                tempo = int(palavras[
+                                indice - 1]) * 60  # Obtém o valor numérico antes da palavra "minutos" e converte para segundos
+                return tempo
+            except ValueError:
+                pass
+
+    return None  # Retorna None se o formato do tempo não for reconhecido
+
+
 def stop_assistant(falar_mensagem=True):
     assistant_active = [True]  # Inicialmente, o assistente está ativo
     if falar_mensagem:
         falar("Assistente pausado.")
 
-    tempo_pausa = 10  # Tempo de pausa em segundos
+    tempo_pausa = definir_tempo_pausa()
+    if tempo_pausa is None:
+        tempo_pausa = 10  # Tempo de pausa padrão em segundos
 
     def retomar_execucao(assistant_active):
         assistant_active[0] = True
@@ -191,31 +244,35 @@ def stop_assistant(falar_mensagem=True):
     if falar_mensagem:
         falar("Assistente reativado.")
     texto_fala.runAndWait()
+
+
 def activate_assistant():
     global assistant_active
     assistant_active = True
     falar("Assistente ativado.")
 
+
 def shutdown_assistant():
     falar("Desligando o assistente.")
     sys.exit()
 
-def obter_previsao_tempo(localizacao,chave_api):
+
+def obter_previsao_tempo(localizacao, chave_api):
     url = f"https://api.openweathermap.org/data/2.5/weather?q={localizacao}&appid={chave_api}&units=metric"
     response = requests.get(url)
     dados = response.json()
 
     # Dicionário de tradução das descrições do tempo
     traducoes = {
-        "clear sky": "céu limpo",
-        "few clouds": "poucas nuvens",
-        "scattered clouds": "nuvens dispersas",
-        "broken clouds": "nuvens quebradas",
-        "shower rain": "chuva fraca",
-        "rain": "chuva",
-        "thunderstorm": "trovoada",
-        "snow": "neve",
-        "mist": "névoa",
+        "clear sky": "Céu Limpo",
+        "few clouds": "Poucas Nuvens",
+        "scattered clouds": "Nuvens Dispersas",
+        "broken clouds": "Nuvens Quebradas",
+        "shower rain": "Chuva Fraca",
+        "rain": "Chuva",
+        "thunderstorm": "Trovoada",
+        "snow": "Neve",
+        "mist": "Névoa",
     }
 
     # Verifique se a requisição foi bem-sucedida
@@ -223,15 +280,17 @@ def obter_previsao_tempo(localizacao,chave_api):
         # Extraia as informações relevantes da resposta JSON
         temperatura = dados["main"]["temp"]
         descricao = dados["weather"][0]["description"]
-        descricao_traduzida = traducoes.get(descricao, descricao)  # Utiliza o dicionário de traduções ou mantém a descrição original
+        descricao_traduzida = traducoes.get(descricao,
+                                            descricao)  # Utiliza o dicionário de traduções ou mantém a descrição original
         umidade = dados["main"]["humidity"]
 
-        return f"A temperatura em {localizacao} é de {temperatura}°C. {descricao_traduzida}. A umidade é de {umidade}%."
+        return f"A TEMPERATURA em {localizacao} é de {temperatura}°C. {descricao_traduzida}. A UMIDADE do Ar é de {umidade}%."
     else:
         return "Não foi possível obter a previsão do tempo."
 
+
 localizacao = "Manaus,BR"  # Substitua pela localização desejada
-chave_api = "troque sua apikey aqui faça o login no ste e pegue a sua"  # Substitua pela sua chave de API da OpenWeatherMap
+chave_api = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Substitua pela sua chave de API da OpenWeatherMap
 
 previsao = obter_previsao_tempo(localizacao, chave_api)
 print(previsao)
@@ -239,7 +298,7 @@ falar(previsao)
 
 if __name__ == "__main__":
     bem_vindo()
-    obter_previsao_tempo(localizacao,chave_api)
+    obter_previsao_tempo(localizacao, chave_api)
 
     try:
         while True:
