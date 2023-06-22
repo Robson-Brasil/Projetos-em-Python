@@ -2,6 +2,7 @@ import datetime
 import sys
 import threading
 import time
+import webbrowser
 
 import keyboard
 import paho.mqtt.client as mqtt
@@ -14,12 +15,14 @@ import wikipedia
 sys.stdout.reconfigure(encoding='utf-8')
 
 # Configurações do MQTT
+# ToDo: Alterar os dados do servidor MQTT aqui:
 mqtt_server = "192.168.15.10"
 mqtt_port = 1883
 mqtt_user = "RobsonBrasil"
 mqtt_password = "loboalfa"
 
-# Tópicos MQTT para os relés
+# Tópicos MQTT para os relés - Esses Tópicos estão na programação do ESP32
+# ToDo: Para autoamações residênciais, inclua seu tóipcos MQTT aqui
 relay_topics = [
     "ESP32/MinhaCasa/QuartoRobson/Interruptor1/Comando",
     "ESP32/MinhaCasa/QuartoRobson/Interruptor2/Comando",
@@ -32,7 +35,7 @@ relay_topics = [
     "ESP32/MinhaCasa/QuartoRobson/Temperatura"
 ]
 
-# Dicionário de aliases para os tópicos
+# Dicionário de aliases para os tópicos - Os Aliases, são para serem usados somente aqui no Python
 topic_aliases = {
     "ESP32/MinhaCasa/QuartoRobson/Interruptor1/Comando": "lâmpada forte",
     "ESP32/MinhaCasa/QuartoRobson/Interruptor2/Comando": "lâmpada fraca",
@@ -52,22 +55,25 @@ texto_fala = pyttsx3.init()
 pause = False
 
 
+# Configuraçoes da voz, timbre, voz, e pausa de fala
 def falar(audio):
     rate = texto_fala.getProperty('rate')
-    texto_fala.setProperty('rate', 160)
+    texto_fala.setProperty('rate', 120)  # Trocar a velocidade da voz
     voices = texto_fala.getProperty('voices')
     texto_fala.setProperty('voice', voices[3].id)  # Trocar as vozes
     texto_fala.say(audio)
     texto_fala.runAndWait()
-    time.sleep(0.1)  # Adiciona uma pausa de 1 segundo após cada fala
+    time.sleep(0.5)  # Adiciona uma pausa de 1 segundo após cada fala
 
 
+# Configuração da hora na qual o assistente fala
 def hora():
-    Hora: str = datetime.datetime.now().strftime("%#H horas e,:%#M minutos,")
-    falar("Agora são,")
+    Hora: str = datetime.datetime.now().strftime("%#H horas e:%#M minutoss,  .....!")
+    falar("Agora são....:  ")
     falar(Hora)
 
 
+# Configuração adicional para o assistente falar o nome do mês vindouro e não o numeral!
 def obter_nome_mes(numero_mes):
     meses = {
         1: "Janeiro!",
@@ -86,32 +92,34 @@ def obter_nome_mes(numero_mes):
     return meses.get(numero_mes, "Mês inválido")
 
 
+# Configuração da Data e Mês
 def data():
     now = datetime.datetime.now()
     dia = str(now.day)
     mes = obter_nome_mes(now.month)
     ano = str(now.year)
 
-    falar("A data de hoje é....," + dia)
-    falar("de-----,   " + mes)
-    falar("de----- ,  " + ano)
+    falar("A data de hoje é:" + dia)
+    falar("de:" + mes)
+    falar("de:" + ano)
 
 
+# Saudação inicial, isso será dito na inicialização do assistente
 def bem_vindo():
-    falar("Olá Robson Brasil, bem-vindo de volta!")
+    falar("Olá Robson Brasil, bem-vindo de volta,.  !")
     hora()
     data()
 
     periodo_do_dia = datetime.datetime.now().hour
     if periodo_do_dia >= 6 and periodo_do_dia < 12:
-        falar("Bom dia mestre,")
+        falar("Bom dia mestre!")
     elif periodo_do_dia >= 12 and periodo_do_dia < 18:
-        falar("Boa tarde mestre,")
+        falar("Boa tarde mestre!")
     elif periodo_do_dia >= 18 and periodo_do_dia <= 24:
-        falar("Boa noite mestre,")
-        falar("Jarvis a sua disposição! Diga-me como posso ajudá-lo hoje?,")
+        falar("Boa noite mestre!")
+        falar("Lua a sua disposição, Diga-me, como posso ajudá-lo?")
     else:
-        falar("Mestre, vá dormir, já é de madrugada!,")
+        falar("Mestre, vá dormir, já é de madrugada!")
 
 
 assistant_active = True
@@ -123,6 +131,8 @@ def on_message(message):
 
 
 def microfone():
+    texto_fala = pyttsx3.init()
+
     comando = None  # Added the initialization of 'comando'
 
     r = sr.Recognizer()
@@ -130,15 +140,14 @@ def microfone():
     try:
         with sr.Microphone() as source:
             r.pause_threshold = 1
-            r.adjust_for_ambient_noise(source, duration=1.0)
+            r.adjust_for_ambient_noise(source, duration=0.15)  # Ajuste para reduzir o ruído, demora uma pouco mais!
             audio = r.listen(source)
             print("Reconhecendo o Comando")
             comando = r.recognize_google(audio, language='pt-BR')
             comando = comando.lower()
             print(comando)
             if 'jarvis' in comando:
-                comando = comando.replace('jarvis', '')
-                # texto_fala.say(comandoo)
+                comando = comando.replace('Lua', '')
                 texto_fala.runAndWait()
 
     except Exception as e:
@@ -149,23 +158,26 @@ def microfone():
     return comando
 
 
-# Configurar o cliente MQTT
+# Configuração do cliente MQTT
 client = mqtt.Client()
 client.username_pw_set(mqtt_user, mqtt_password)
 client.connect(mqtt_server, mqtt_port, 60)
 
 
+# Início da configuração da pausa
 def definir_tempo_pausa():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         falar("Diga o tempo de pausa desejado:")
         audio = recognizer.listen(source)
+        texto_fala.runAndWait()
 
     try:
         texto = recognizer.recognize_google(audio, language="pt-BR")
         tempo_pausa = extrair_valor_tempo(
             texto)  # Implemente a função extrair_valor_tempo() para converter a entrada em um valor numérico de tempo.
         falar(f"Tempo de pausa definido como {tempo_pausa} segundos.")
+        texto_fala.runAndWait()
         return tempo_pausa
     except sr.UnknownValueError:
         print("Não foi possível entender a entrada de voz.")
@@ -174,6 +186,7 @@ def definir_tempo_pausa():
     return None
 
 
+# Definição por voz, de quantos segundos, minutos e/ou horas o assistente deverá ficar pausado
 def extrair_valor_tempo(texto):
     palavras = texto.split()  # Divide o texto em palavras
 
@@ -197,13 +210,32 @@ def extrair_valor_tempo(texto):
             except ValueError:
                 pass
 
+    if "hora" in palavras or "horas" in palavras:
+        if "hora" in palavras:
+            indice = palavras.index("hora")
+        else:
+            indice = palavras.index("horas")
+        if indice > 0:
+            try:
+                tempo = int(palavras[
+                                indice - 1]) * 3600  # Obtém o valor numérico antes da palavra "horas" e converte para segundos
+                return tempo
+            except ValueError:
+                pass
+
     return None  # Retorna None se o formato do tempo não for reconhecido
+
+
+def falar(mensagem):
+    texto_fala.say(mensagem)
+    texto_fala.runAndWait()
 
 
 def stop_assistant(falar_mensagem=True):
     assistant_active = [True]  # Inicialmente, o assistente está ativo
     if falar_mensagem:
-        falar("Assistente pausado.")
+        falar("Assistente entrando em pausa....")
+        texto_fala.runAndWait()
 
     tempo_pausa = definir_tempo_pausa()
     if tempo_pausa is None:
@@ -214,7 +246,7 @@ def stop_assistant(falar_mensagem=True):
 
     # Monitorar a tecla "A" e a palavra "ativar" para interromper a pausa e reativar o assistente
     def on_key_press(key):
-        if key.name == "a":
+        if key.name == "=":
             retomar_execucao(assistant_active)
         else:
             recognizer = sr.Recognizer()
@@ -246,17 +278,21 @@ def stop_assistant(falar_mensagem=True):
     texto_fala.runAndWait()
 
 
+# Esse comando era pra ser acionado mesmo quando o assistente estivesse em pausa, mas, não consegui fazer funcionar, ainda!
 def activate_assistant():
     global assistant_active
     assistant_active = True
     falar("Assistente ativado.")
+    texto_fala.runAndWait()
 
 
+# Comando para desligar o assistente
 def shutdown_assistant():
     falar("Desligando o assistente.")
     sys.exit()
 
 
+# Comando para a previsão do Tempo, aqui será obrigatório o uso de uma API
 def obter_previsao_tempo(localizacao, chave_api):
     url = f"https://api.openweathermap.org/data/2.5/weather?q={localizacao}&appid={chave_api}&units=metric"
     response = requests.get(url)
@@ -289,29 +325,53 @@ def obter_previsao_tempo(localizacao, chave_api):
         return "Não foi possível obter a previsão do tempo."
 
 
-localizacao = "Manaus,BR"  # Substitua pela localização desejada
-chave_api = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Substitua pela sua chave de API da OpenWeatherMap
+# Configuração da previsão do tempo
+localizacao = "Manaus, Amazonas"  # Substitua pela localização desejada
+# ToDo: Por aqui a tua API
+chave_api = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Substitua pela sua chave de API da OpenWeatherMap
 
+# O assistente falar a previsão em si!
 previsao = obter_previsao_tempo(localizacao, chave_api)
 print(previsao)
 falar(previsao)
+texto_fala.runAndWait()
 
 if __name__ == "__main__":
     bem_vindo()
     obter_previsao_tempo(localizacao, chave_api)
+    texto_fala.runAndWait()
 
     try:
         while True:
+
+            comando = microfone()
+
             print("Estou Escutando....")
+
             if assistant_active:
                 comando = microfone()
             if comando is not None:
                 comando = comando.lower()
 
+            # ToDo: Adione mais sites aqui!
+            sites = [
+                ["youtube", "https://www.youtube.com"],
+                ["wikipedia", "https://www.wikipedia.com"],
+                ["google", "https://www.google.com"],
+                ["facebook", "https://www.facebook.com"],
+            ]
+
+            for site in sites:
+                if comando is not None and f"Abrir o site {site[0]}".lower() in comando:
+                    falar(f"Abrindo {site[0]}...")
+                    webbrowser.open(site[1])
+                    break
+
             if comando is not None and 'como você está' in comando:
                 falar("Estou bem, obrigado. E você?")
                 falar("O que posso fazer para ajudá-lo, mestre?")
                 texto_fala.runAndWait()
+
             elif comando is not None and 'hora' in comando:
                 hora()
                 texto_fala.runAndWait()
@@ -337,10 +397,16 @@ if __name__ == "__main__":
                 falar(resultado)
                 texto_fala.runAndWait()
 
-            elif comando is not None and 'toque' in comando:
-                musica = comando.replace('toque', '')
+            elif comando is not None and 'tocar' in comando:
+                musica = comando.replace('tocar', '')
                 resultado = pywhatkit.playonyt(musica)
                 falar('Tocando música')
+                texto_fala.runAndWait()
+
+            elif comando is not None and 'procurar no youtube' in comando:
+                canal = comando.replace('procurar no youtube', '')
+                resultadoCanal = pywhatkit.playonyt(canal)
+                falar('Encontrando canal')
                 texto_fala.runAndWait()
 
             elif comando is not None and 'previsão do tempo' in comando:
@@ -356,6 +422,7 @@ if __name__ == "__main__":
                 elif comando is not None and f"apagar {alias}" in comando:
                     client.publish(topic, "0")
                     falar(f"Apagando o {alias}")
+
                 elif comando is not None and f"temperatura {alias}" in comando:
                     client.publish(topic, "get_temp_data")  # Publicar mensagem para obter dados de temperatura
                     client.publish(topic, "get_hum_data")  # Publicar mensagem para obter dados de umidade
