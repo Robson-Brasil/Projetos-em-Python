@@ -224,7 +224,7 @@ def obter_previsao_tempo(localizacao, chave_api):
 # Configuração da previsão do tempo
 localizacao = "Manaus, Amazonas"  # Substitua pela localização desejada
 # ToDo: Por aqui a tua API
-chave_api = "b7d14b931a96d7a64ea1aba822899328"  # Substitua pela sua chave de API da OpenWeatherMap
+chave_api = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Substitua pela sua chave de API da OpenWeatherMap
 
 # O assistente falar a previsão em si!
 previsao = obter_previsao_tempo(localizacao, chave_api)

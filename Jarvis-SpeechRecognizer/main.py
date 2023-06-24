@@ -120,12 +120,7 @@ def on_message(message):
     global assistant_active
     payload = message.payload.decode("utf-8")
 
-    if message.topic == "ESP32/MinhaCasa/QuartoRobson/Temperatura":
-        temperatura = payload
-    elif message.topic == "ESP32/MinhaCasa/QuartoRobson/Umidade":
-        umidade = payload
-
-
+    
 def microfone():
     maquina_fala = pyttsx3.init()
 
