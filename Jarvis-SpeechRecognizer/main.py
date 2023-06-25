@@ -120,7 +120,7 @@ def on_message(message):
     global assistant_active
     payload = message.payload.decode("utf-8")
 
-    
+
 def microfone():
     maquina_fala = pyttsx3.init()
 
@@ -319,7 +319,7 @@ def obter_previsao_tempo(localizacao, chave_api):
 # Configuração da previsão do tempo
 localizacao = "Manaus, Amazonas"  # Substitua pela localização desejada
 # ToDo: Por aqui a tua API
-chave_api = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Substitua pela sua chave de API da OpenWeatherMap
+chave_api = "xxxxxxxxxxxxxxxx"  # Substitua pela sua chave de API da OpenWeatherMap
 
 # O assistente falar a previsão em si!
 previsao = obter_previsao_tempo(localizacao, chave_api)
