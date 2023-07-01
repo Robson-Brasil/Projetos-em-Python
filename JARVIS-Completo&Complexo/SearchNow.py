@@ -86,7 +86,7 @@ def takeCommand():
     
     try:
         print("Understanding....")
-        query = r.recognize_google(audio,language='en-in')
+        query = r.recognize_google(audio,language='pt-BR')
         print(f"You Said: {query}\n")
     except Exception as e:
         print("Say that again")
@@ -97,7 +97,7 @@ query = takeCommand().lower()
 
 engine = pyttsx3.init("sapi5")
 voices = engine.getProperty("voices")
-engine.setProperty("voice", voices[0].id)
+engine.setProperty("voice", voices[3].id)
 rate = engine.setProperty("rate",170)
 
 def speak(audio):

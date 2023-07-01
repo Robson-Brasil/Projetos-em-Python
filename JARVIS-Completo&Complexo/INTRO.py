@@ -1,5 +1,6 @@
 from tkinter import * #pip install tkinter
 from PIL import Image,ImageTk,ImageSequence #pip install Pillow
+from moviepy.editor import VideoFileClip
 import time
 import pygame  #pip install pygame
 from pygame import mixer
@@ -12,11 +13,11 @@ def play_gif():
     root.lift()
     root.attributes("-topmost",True)
     global img
-    img = Image.open("ironsnap2.gif")
+    img = Image.open("J.A.R.V.I.S.gif")
     lbl = Label(root)
     lbl.place(x=0,y=0)
     i=0
-    mixer.music.load("Startup2.mp3")
+    mixer.music.load("IntroduçãoJARVIS.mp3")
     mixer.music.play()
     
     for img in ImageSequence.Iterator(img):
@@ -24,7 +25,7 @@ def play_gif():
         img = ImageTk.PhotoImage(img)
         lbl.config(image=img)
         root.update()
-        time.sleep(0.05)
+        time.sleep(0.0)
     root.destroy()
 
 play_gif()

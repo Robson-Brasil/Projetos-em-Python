@@ -21,7 +21,3 @@ def focus_graph():
     pt.ylabel("Focus Time", fontsize = 14)
     pt.grid()
     pt.show()
-
-
-    
-   

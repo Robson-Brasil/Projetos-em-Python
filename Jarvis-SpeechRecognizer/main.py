@@ -3,10 +3,12 @@ import os
 import sys
 import threading
 import time
-
 import keyboard
 import paho.mqtt.client as mqtt
 import pygame
+import cv2
+import moviepy.editor as mp
+from moviepy.editor import VideoFileClip
 import pyttsx3
 import pywhatkit
 import requests
@@ -18,6 +20,16 @@ from ConfiguracaoMQTT import mqtt_server, mqtt_port, mqtt_user, mqtt_password
 from topicos_mqtt import relay_topics
 from topicos_mqtt_aliases import topic_aliases
 
+def on_message(client, userdata, message):
+    payload = message.payload.decode("utf-8")
+    print("Received message: ", payload)
+
+# Configuração do cliente MQTT
+client = mqtt.Client()
+client.username_pw_set(mqtt_user, mqtt_password)
+client.connect(mqtt_server, mqtt_port, 60)
+client.loop_start()
+
 sys.stdout.reconfigure(encoding='utf-8')
 
 # falar
@@ -26,40 +38,122 @@ maquina_fala = pyttsx3.init("sapi5")
 # Variável para controlar se o programa principal está em pausa ou não
 pause = False
 
+def microfone():
+    #maquina_fala = pyttsx3.init()
 
-def tocar_musica(caminho):
+    comando = None  # Added the initialization of 'comando'
+
+    r = sr.Recognizer()
+
+    try:
+        print("Estou Escutando....")
+
+        with sr.Microphone(sample_rate=16000) as source:
+            r.pause_threshold = 0.5
+            r.adjust_for_ambient_noise(source, duration=0.15)
+            audio = r.listen(source)
+            comando = r.recognize_google(audio, language='pt-BR')
+            comando = comando.lower()
+            comando = comando.replace('jarvis', 'Jarvis').replace('jarvis', '')
+            
+            print(comando)
+            print("Reconhecendo o Comando")
+
+    except Exception as e:
+        print(e)
+        return None
+
+    return comando
+
+def player_video(caminho_video, caminho_musica):
+    # Carregar o vídeo usando o moviepy
+    video = mp.VideoFileClip(caminho_video)
+
+    # Extrair o áudio do arquivo de vídeo
+    audio_video = video.audio
+
+    # Configurações do pygame para reprodução de áudio
     pygame.mixer.init()
-    pygame.mixer.music.load(caminho)
+    pygame.mixer.music.load(caminho_musica)
     pygame.mixer.music.play()
 
+    # Definir o tempo inicial
+    tempo_inicial = time.time()
+
+    # Duração do vídeo igual à duração da música
+    duracao = pygame.mixer.Sound(caminho_musica).get_length()
+
+    # Desativar o reconhecimento de voz durante a reprodução do vídeo
+    recognizer = sr.Recognizer()
+    recognizer.pause_threshold = float('inf')  # Definir pausa infinita para desativar o reconhecimento
+    recognizer.energy_threshold = 4000  # Ajuste o valor conforme necessário para evitar o reconhecimento de ruído
+
+    # Loop para reproduzir o vídeo em loop pela duração da música
+    while time.time() - tempo_inicial < duracao:
+        # Obter o quadro correspondente ao tempo atual
+        frame = video.get_frame(time.time() - tempo_inicial)
+
+        # Converter o quadro para o formato BGR (OpenCV usa BGR)
+        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        # Exibir o quadro usando o OpenCV
+        cv2.imshow("Video Player", frame_bgr)
+
+        # Verificar se a tecla 'q' foi pressionada para sair
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+    # Reativar o reconhecimento de voz após a reprodução do vídeo
+    recognizer.pause_threshold = 90.0  # Definir o valor desejado para retomar o reconhecimento
+    recognizer.energy_threshold = 1000  # Ajuste o valor conforme necessário para detectar a fala
+
+    # Parar a reprodução do áudio do vídeo e do pygame
+    pygame.mixer.music.stop()
+    audio_video.close()
+
+    # Liberar recursos
+    cv2.destroyAllWindows()
 
 # Iniciar a reprodução da música ao iniciar o assistente
 caminho_musica = "D:\GitRepositorio\Projetos-em-Python\Jarvis-SpeechRecognizer\IntroduçãoJARVIS.mp3"  # Substitua pelo caminho correto do arquivo de música
-tocar_musica(caminho_musica)
 
-# Aguardar um tempo para a música tocar antes de continuar com as saudações
-tempo_espera = 23  # Tempo em segundos, ajuste conforme necessário
-time.sleep(tempo_espera)
+# Desativar o reconhecimento de voz antes de iniciar a reprodução do vídeo
+recognizer = sr.Recognizer()
+recognizer.pause_threshold = float('inf')  # Definir pausa infinita para desativar o reconhecimento
+recognizer.energy_threshold = 10000  # Ajuste o valor conforme necessário para evitar o reconhecimento de ruído
 
+# Iniciar a reprodução do vídeo
+caminho_video = "D:\GitRepositorio\Projetos-em-Python\Jarvis-SpeechRecognizer\J.A.R.V.I.S.mp4"  # Substitua pelo caminho correto do arquivo de vídeo
+player_video(caminho_video, caminho_musica)
+
+#Reativar o reconhecimento de voz após a reprodução do vídeo
+recognizer.pause_threshold = 90.0  # Definir o valor desejado para retomar o reconhecimento
+recognizer.energy_threshold = 5000  # Ajuste o valor conforme necessário para detectar a fala
+
+#Aguardar o término da reprodução da música antes de continuar com as saudações
+while pygame.mixer.music.get_busy():
+    continue
+
+#Ativar o reconhecimento de voz novamente
+recognizer.pause_threshold = 90.0  # Definir o valor desejado para o reconhecimento
+recognizer.energy_threshold = 5000  # Ajuste o valor conforme necessário para detectar a fala
 
 # Configuraçoes da voz, timbre, voz, e pausa de fala
 def falar(audio):
     maquina_fala.say(audio)
     maquina_fala.runAndWait()
     rate = maquina_fala.getProperty('rate')
-    maquina_fala.setProperty('rate', 180)  # Trocar a velocidade da voz
+    maquina_fala.setProperty('rate', 115)  # Trocar a velocidade da voz
     voices = maquina_fala.getProperty('voices')
     maquina_fala.setProperty('voice', voices[3].id)  # Trocar as vozes
-
     time.sleep(0.5)  # Adiciona uma pausa de 1 segundo após cada fala
-
 
 # Configuração da hora na qual o assistente fala
 def hora():
     Hora: str = datetime.datetime.now().strftime("%#H horas e:%#M minutos  .....!")
     falar("Agora são....:  ")
     falar(Hora)
-
+    maquina_fala.runAndWait()
 
 # Configuração adicional para o assistente falar o nome do mês vindouro e não o numeral!
 def obter_nome_mes(numero_mes):
@@ -79,7 +173,6 @@ def obter_nome_mes(numero_mes):
     }
     return meses.get(numero_mes, "Mês inválido")
 
-
 # Configuração da Data e Mês
 def data():
     now = datetime.datetime.now()
@@ -91,77 +184,44 @@ def data():
     year_in_words = num2words(ano, lang='pt_BR')
 
     falar("A data de hoje é:" + dia)
+    
     falar("de:" + mes)
+    
     falar("de:" + year_in_words)
-
+    maquina_fala.runAndWait()
 
 # Saudação inicial, isso será dito na inicialização do assistente
 def bem_vindo():
     falar("Olá Robson Brasil, bem-vindo de volta,.  !")
+    maquina_fala.runAndWait()
     hora()
     data()
 
     periodo_do_dia = datetime.datetime.now().hour
     if periodo_do_dia >= 6 and periodo_do_dia < 12:
         falar("Bom dia mestre!")
+        maquina_fala.runAndWait()
     elif periodo_do_dia >= 12 and periodo_do_dia < 18:
         falar("Boa tarde mestre!")
+        maquina_fala.runAndWait()
     elif periodo_do_dia >= 18 and periodo_do_dia <= 24:
         falar("Boa noite mestre!")
-        falar("Luna a sua disposição, Diga-me, como posso ajudá-lo?")
+        maquina_fala.runAndWait()
+        falar("Jarvis a sua disposição, Diga-me, como posso ajudá-lo?")
+        maquina_fala.runAndWait()
     else:
         falar("Mestre, vá dormir, já é de madrugada!")
-
+        maquina_fala.runAndWait()
 
 assistant_active = True
-
-
-def on_message(message):
-    global assistant_active
-    payload = message.payload.decode("utf-8")
-
-
-def microfone():
-    maquina_fala = pyttsx3.init()
-
-    comando = None  # Added the initialization of 'comando'
-
-    r = sr.Recognizer()
-
-    try:
-        with sr.Microphone() as source:
-            r.pause_threshold = 1
-            r.adjust_for_ambient_noise(source, duration=0.15)  # Ajuste para reduzir o ruído, demora uma pouco mais!
-            audio = r.listen(source)
-            print("Reconhecendo o Comando")
-            comando = r.recognize_google(audio, language='pt-BR')
-            comando = comando.lower()
-            print(comando)
-            # Realizar múltiplos replaces
-            comando = comando.replace('luana', 'lua').replace('lunar', '')
-            maquina_fala.runAndWait()
-
-    except Exception as e:
-        print(e)
-        # falar(" Por favor, repita. Não entendi.")
-        return None
-
-    return comando
-
-
-# Configuração do cliente MQTT
-client = mqtt.Client()
-client.username_pw_set(mqtt_user, mqtt_password)
-client.connect(mqtt_server, mqtt_port, 60)
-
 
 # Início da configuração da pausa
 def definir_tempo_pausa():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         falar("Diga o tempo de pausa desejado:")
-        audio = recognizer.listen(source)
         maquina_fala.runAndWait()
+        audio = recognizer.listen(source)
 
     try:
         texto = recognizer.recognize_google(audio, language="pt-BR")
@@ -175,7 +235,6 @@ def definir_tempo_pausa():
     except sr.RequestError:
         print("Não foi possível se conectar ao serviço de reconhecimento de voz.")
     return None
-
 
 # Definição por voz, de quantos segundos, minutos e/ou horas o assistente deverá ficar pausado
 def extrair_valor_tempo(texto):
@@ -216,11 +275,8 @@ def extrair_valor_tempo(texto):
 
     return None  # Retorna None se o formato do tempo não for reconhecido
 
-
-def falar(mensagem):
+def fala(mensagem):
     maquina_fala.say(mensagem)
-    maquina_fala.runAndWait()
-
 
 def stop_assistant(falar_mensagem=True):
     assistant_active = [True]  # Inicialmente, o assistente está ativo
@@ -266,8 +322,7 @@ def stop_assistant(falar_mensagem=True):
 
     if falar_mensagem:
         falar("Assistente reativado.")
-    maquina_fala.runAndWait()
-
+        maquina_fala.runAndWait()
 
 # Esse comando era pra ser acionado mesmo quando o assistente estivesse em pausa, mas, não consegui fazer funcionar, ainda!
 def activate_assistant():
@@ -276,12 +331,11 @@ def activate_assistant():
     falar("Assistente ativado.")
     maquina_fala.runAndWait()
 
-
 # Comando para desligar o assistente
 def shutdown_assistant():
     falar("Desligando o assistente.")
+    maquina_fala.runAndWait()
     sys.exit()
-
 
 # Comando para a previsão do Tempo, aqui será obrigatório o uso de uma API
 def obter_previsao_tempo(localizacao, chave_api):
@@ -291,15 +345,16 @@ def obter_previsao_tempo(localizacao, chave_api):
 
     # Dicionário de tradução das descrições do tempo
     traducoes = {
-        "clear sky": "Céu Limpo",
-        "few clouds": "Poucas Nuvens",
-        "scattered clouds": "Nuvens Dispersas",
-        "broken clouds": "Nuvens Quebradas",
-        "shower rain": "Chuva Fraca",
-        "rain": "Chuva",
-        "thunderstorm": "Trovoada",
+        "clear sky": "Limpo",
+        "few clouds": "com Poucas Nuvens",
+        "scattered clouds": "com Nuvens Dispersas",
+        "broken clouds": "com Nuvens Quebradas",
+        "shower rain": "com Chuva Fraca",
+        "rain": "com Chuva",
+        "thunderstorm": "com Trovoada",
         "snow": "Neve",
-        "mist": "Névoa",
+        "mist": "com Névoa",
+        "overcast clouds": "com nuvens encobertas",
     }
 
     # Verifique se a requisição foi bem-sucedida
@@ -311,15 +366,14 @@ def obter_previsao_tempo(localizacao, chave_api):
                                             descricao)  # Utiliza o dicionário de traduções ou mantém a descrição original
         umidade = dados["main"]["humidity"]
 
-        return f"A TEMPERATURA em {localizacao} é de {temperatura}°C. {descricao_traduzida}. A UMIDADE do Ar é de {umidade}%."
+        return f"A TEMPERATURA em {localizacao} é de {temperatura}° Celsius, céu {descricao_traduzida}. A UMIDADE do Ar é de {umidade}%."
     else:
         return "Não foi possível obter a previsão do tempo."
-
 
 # Configuração da previsão do tempo
 localizacao = "Manaus, Amazonas"  # Substitua pela localização desejada
 # ToDo: Por aqui a tua API
-chave_api = "xxxxxxxxxxxxxxxx"  # Substitua pela sua chave de API da OpenWeatherMap
+chave_api = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Substitua pela sua chave de API da OpenWeatherMap
 
 # O assistente falar a previsão em si!
 previsao = obter_previsao_tempo(localizacao, chave_api)
@@ -337,35 +391,27 @@ if __name__ == "__main__":
 
             comando = microfone()
 
-            print("Estou Escutando....")
-
-            if assistant_active:
-                comando = microfone()
-            if comando is not None:
+            if assistant_active and comando is not None:
                 comando = comando.lower()
+
+            print("Estou Escutando....")
 
             if comando is not None and 'como você está' in comando:
                 falar("Estou bem, obrigado. E você?")
                 falar("O que posso fazer para ajudá-lo, mestre?")
-                maquina_fala.runAndWait()
 
             elif comando is not None and 'hora' in comando:
                 hora()
-                maquina_fala.runAndWait()
             elif comando is not None and 'data' in comando:
                 data()
-                maquina_fala.runAndWait()
 
             elif comando is not None and 'fazer uma pausa' in comando:
                 stop_assistant()
-                maquina_fala.runAndWait()
             elif comando is not None and 'ativar' in comando:
                 activate_assistant()
-                maquina_fala.runAndWait()
             elif comando is not None and 'desligar' in comando:
                 desligar = comando.replace('desligar', '')
                 shutdown_assistant()
-                maquina_fala.runAndWait()
 
             elif comando is not None and 'procurar' in comando:
                 procurar = comando.replace('procurar', '')
@@ -389,17 +435,20 @@ if __name__ == "__main__":
                 previsao = obter_previsao_tempo(localizacao, chave_api)
                 print(previsao)
                 falar("Hoje...")
+                maquina_fala.runAndWait()
                 falar(previsao)
+                maquina_fala.runAndWait()
 
             for topic in relay_topics:
                 alias = topic_aliases[topic]
-                if comando is not None and f"acender {alias}" in comando:
+
+                if comando is not None and f"acender {alias.lower()}" in comando:
                     client.publish(topic, "1")
                     falar(f"Ligando o {alias}")
-                elif comando is not None and f"apagar {alias}" in comando:
+
+                elif comando is not None and f"apagar {alias.lower()}" in comando:
                     client.publish(topic, "0")
                     falar(f"Apagando o {alias}")
-
 
     except KeyboardInterrupt:
         pass

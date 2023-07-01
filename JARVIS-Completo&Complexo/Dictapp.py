@@ -6,7 +6,7 @@ from time import sleep
 
 engine = pyttsx3.init("sapi5")
 voices = engine.getProperty("voices")
-engine.setProperty("voice", voices[0].id)
+engine.setProperty("voice", voices[3].id)
 engine.setProperty("rate",200)
 
 def speak(audio):
@@ -73,5 +73,3 @@ def closeappweb(query):
         for app in keys:
             if app in query:
                 os.system(f"taskkill /f /im {dictapp[app]}.exe")
-
-    

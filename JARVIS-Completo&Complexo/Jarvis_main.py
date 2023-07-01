@@ -12,27 +12,68 @@ import random
 from plyer import notification
 from pygame import mixer
 import speedtest
+import paho.mqtt.client as mqtt
+import sys
+
+from ConfiguracaoMQTT import mqtt_server, mqtt_port, mqtt_user, mqtt_password
+from topicos_mqtt import relay_topics
+from topicos_mqtt_aliases import topic_aliases
+
+sys.stdout.reconfigure(encoding='utf-8')
+
+# Função para publicar uma mensagem MQTT
+def publish_mqtt(topic, message):
+    client = mqtt.Client()
+    client.username_pw_set(mqtt_user, mqtt_password)
+    client.connect(mqtt_server, mqtt_port)
+    client.publish(topic, message)
+    client.disconnect()
+
+# Função de callback para conexão MQTT
+def on_connect(client, userdata, flags, rc):
+    print("Conectado ao broker MQTT.")
+    client.subscribe("ESP32/MinhaCasa/QuartoRobson/Interruptor1/Comando")
+    client.subscribe("ESP32/MinhaCasa/QuartoRobson/Interruptor2/Comando")
+    client.subscribe("ESP32/MinhaCasa/QuartoRobson/Interruptor3/Comando")
+    client.subscribe("ESP32/MinhaCasa/QuartoRobson/Interruptor4/Comando")
+    client.subscribe("ESP32/MinhaCasa/QuartoRobson/Interruptor5/Comando")
+    client.subscribe("ESP32/MinhaCasa/QuartoRobson/Interruptor6/Comando")
+    client.subscribe("ESP32/MinhaCasa/QuartoRobson/Interruptor7/Comando")
+    client.subscribe("ESP32/MinhaCasa/QuartoRobson/Interruptor8/Comando")
+
+# Função de callback para recebimento de mensagens MQTT
+def on_message(client, userdata, msg):
+    print("Mensagem recebida no tópico: " + msg.topic)
+    print("Conteúdo da mensagem: " + msg.payload.decode())
+
+# Configuração do cliente MQTT
+client = mqtt.Client()
+client.username_pw_set(mqtt_user, mqtt_password)
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect(mqtt_server, mqtt_port, keepalive=60)
+client.loop_start()
 
 for i in range(3):
-    a = input("Enter Password to open Jarvis :- ")
+    a = input("Senhor, digite a senha de segurança, por favor :- ")
     pw_file = open("password.txt","r")
     pw = pw_file.read()
     pw_file.close()
     if (a==pw):
-        print("WELCOME SIR ! PLZ SPEAK [WAKE UP] TO LOAD ME UP")
+        print("Bem-Vindo Senhor! Por Favor fale [JARVIS ATIVAR] Para eu carregar o sistema!")
         break
     elif (i==2 and a!=pw):
         exit()
 
     elif (a!=pw):
-        print("Try Again")
+        print("Tente Novamente")
 
-#from INTRO import play_gif
-#play_gif
+from INTRO import play_gif
+play_gif
 
 engine = pyttsx3.init("sapi5")
 voices = engine.getProperty("voices")
-engine.setProperty("voice", voices[0].id)
+engine.setProperty("voice", voices[3].id)
 rate = engine.setProperty("rate",170)
 
 def speak(audio):
@@ -42,17 +83,17 @@ def speak(audio):
 def takeCommand():
     r = speech_recognition.Recognizer()
     with speech_recognition.Microphone() as source:
-        print("Listening.....")
+        print("Ouvindo.....")
         r.pause_threshold = 1
         r.energy_threshold = 300
         audio = r.listen(source,0,4)
 
     try:
-        print("Understanding..")
-        query  = r.recognize_google(audio,language='en-in')
-        print(f"You Said: {query}\n")
+        print("Entendendo..")
+        query  = r.recognize_google(audio,language='pt-BR')
+        print(f"Você disse: {query}\n")
     except Exception as e:
-        print("Say that again")
+        print("Diga isso novamente")
         return "None"
     return query
 
@@ -62,56 +103,53 @@ def alarm(query):
     timehere.close()
     os.startfile("alarm.py")
 
-
 if __name__ == "__main__":
     while True:
         query = takeCommand().lower()
-        if "wake up" in query:
+        if "ativar" in query:
             from GreetMe import greetMe
             greetMe()
 
             while True:
                 query = takeCommand().lower()
-                if "go to sleep" in query:
-                    speak("Ok sir , You can call me anytime")
-                    break 
-                
-                #################### JARVIS: THe Trilogy 2.0 #####################
+                if "vá dormir" in query:
+                    speak("Certo, senhor. Você pode me ligar a qualquer momento")
+                    break
 
-                elif "change password" in query:
-                    speak("What's the new password")
-                    new_pw = input("Enter the new password\n")
+                elif "alterar senha" in query:
+                    speak("Qual é a nova senha")
+                    new_pw = input("Digite a nova senha\n")
                     new_password = open("password.txt","w")
                     new_password.write(new_pw)
                     new_password.close()
-                    speak("Done sir")
-                    speak(f"Your new password is{new_pw}")
+                    speak("Feito, senhor")
+                    speak(f"Sua nova senha é{new_pw}")
 
-                elif "schedule my day" in query:
+                elif "agende meu dia" in query:
                     tasks = [] #Empty list 
-                    speak("Do you want to clear old tasks (Plz speak YES or NO)")
+                    speak("Você deseja limpar as tarefas antigas? (Por favor, responda SIM ou NÃO)")
                     query = takeCommand().lower()
-                    if "yes" in query:
+                    if "sim" in query:
                         file = open("tasks.txt","w")
                         file.write(f"")
                         file.close()
-                        no_tasks = int(input("Enter the no. of tasks :- "))
+                        no_tasks = int(input("Digite o número de tarefas:- "))
                         i = 0
                         for i in range(no_tasks):
-                            tasks.append(input("Enter the task :- "))
+                            tasks.append(input("Digite a tarefa:- "))
                             file = open("tasks.txt","a")
                             file.write(f"{i}. {tasks[i]}\n")
                             file.close()
-                    elif "no" in query:
+                    elif "não" in query:
                         i = 0
-                        no_tasks = int(input("Enter the no. of tasks :- "))
+                        no_tasks = int(input("Digite o número de tarefas:- "))
                         for i in range(no_tasks):
-                            tasks.append(input("Enter the task :- "))
+                            tasks.append(input("Digite a tarefa:- "))
                             file = open("tasks.txt","a")
                             file.write(f"{i}. {tasks[i]}\n")
                             file.close()
 
-                elif "show my schedule" in query:
+                elif "mostrar minha agenda" in query:
                     file = open("tasks.txt","r")
                     content = file.read()
                     file.close()
@@ -119,34 +157,30 @@ if __name__ == "__main__":
                     mixer.music.load("notification.mp3")
                     mixer.music.play()
                     notification.notify(
-                        title = "My schedule :-",
+                        title = "Minha agenda :-",
                         message = content,
                         timeout = 15
                     )
 
-                elif "focus mode" in query:
-                    a = int(input("Are you sure that you want to enter focus mode :- [1 for YES / 2 for NO "))
+                elif "modo de foco" in query:
+                    a = int(input("Você tem certeza de que deseja entrar no modo de foco :- [1 para SIM / 2 para NÃO "))
                     if (a==1):
-                        speak("Entering the focus mode....")
+                        speak("Entrando no modo de foco....")
                         os.startfile("D:\\Coding\\Youtube\\Jarvis\\FocusMode.py")
                         exit()
 
-                    
                     else:
                         pass
 
-                elif "show my focus" in query:
+                elif "Mostrar meu foco" in query:
                     from FocusGraph import focus_graph
                     focus_graph()
 
-                elif "translate" in query:
+                elif "tradutor" in query:
                     from Translator import translategl
                     query = query.replace("jarvis","")
-                    query = query.replace("translate","")
+                    query = query.replace("tradutor","")
                     translategl(query)
-
-                
-
 
                 elif "open" in query:   #EASY METHOD
                     query = query.replace("open","")
@@ -155,16 +189,16 @@ if __name__ == "__main__":
                     pyautogui.typewrite(query)
                     pyautogui.sleep(2)
                     pyautogui.press("enter")                       
-                     
-                elif "internet speed" in query:
-                    wifi  = speedtest.Speedtest()
-                    upload_net = wifi.upload()/1048576         #Megabyte = 1024*1024 Bytes
-                    download_net = wifi.download()/1048576
-                    print("Wifi Upload Speed is", upload_net)
-                    print("Wifi download speed is ",download_net)
-                    speak(f"Wifi download speed is {download_net}")
-                    speak(f"Wifi Upload speed is {upload_net}")
-                    
+
+                elif "velocidade da internet" in query:
+                    cabo = speedtest.Speedtest()
+                    cabo.get_best_server()
+                    upload_net = cabo.upload() / 1048576  # Megabyte = 1024*1024 Bytes
+                    download_net = cabo.download() / 1048576
+                    print("Cable Upload Speed is", upload_net)
+                    print("Cable download speed is ", download_net)
+                    speak(f"Cable download speed is {download_net}")
+                    speak(f"Cable Upload speed is {upload_net}")
 
                 elif "ipl score" in query:
                     from plyer import notification  #pip install plyer
@@ -186,17 +220,17 @@ if __name__ == "__main__":
                         message = f"{team1} : {team1_score}\n {team2} : {team2_score}",
                         timeout = 15
                     )
-                
-                elif "play a game" in query:
+
+                elif "play um jogo" in query:
                     from game import game_play
                     game_play()
 
                 elif "screenshot" in query:
-                     import pyautogui #pip install pyautogui
-                     im = pyautogui.screenshot()
-                     im.save("ss.jpg")
+                    import pyautogui #pip install pyautogui
+                    im = pyautogui.screenshot()
+                    im.save("ss.jpg")
 
-                elif "click my photo" in query:
+                elif "tire uma foto minha" in query:
                     pyautogui.press("super")
                     pyautogui.typewrite("camera")
                     pyautogui.press("enter")
@@ -204,55 +238,47 @@ if __name__ == "__main__":
                     speak("SMILE")
                     pyautogui.press("enter")
 
-                
-                
+                elif "jarvis, como você está?" in query:
+                    speak("Estou bem, obrigado e você ?")
+                elif "estou ótimo" in query:
+                    speak("Isso é ótimo, senhor")
+                elif "como você está" in query:
+                    speak("Perfeito, senhor")
+                elif "obrigado" in query:
+                    speak("seja-benvindo, senhor")
 
-                ############################################################
-                elif "hello" in query:
-                    speak("Hello sir, how are you ?")
-                elif "i am fine" in query:
-                    speak("that's great, sir")
-                elif "how are you" in query:
-                    speak("Perfect, sir")
-                elif "thank you" in query:
-                    speak("you are welcome, sir")
-                
-                elif "tired" in query:
-                    speak("Playing your favourite songs, sir")
+                elif "cansado" in query:
+                    speak("Reproduzindo suas músicas favoritas, senhor")
                     a = (1,2,3)
                     b = random.choice(a)
                     if b==1:
-                        webbrowser.open("https://www.youtube.com/watch?v=E3jOYQGu1uw&t=1246s&ab_channel=scientificoder")
-                    
+                        webbrowser.open("https://www.youtube.com/watch?v=xF3x3jTvTYg")
 
-                elif "pause" in query:
+                elif "pausa" in query:
                     pyautogui.press("k")
                     speak("video paused")
                 elif "play" in query:
                     pyautogui.press("k")
                     speak("video played")
-                elif "mute" in query:
+                elif "mudo" in query:
                     pyautogui.press("m")
-                    speak("video muted")
-                
+                    speak("video mutado")
 
-
-                elif "volume up" in query:
+                elif "aumentar volume" in query:
                     from keyboard import volumeup
-                    speak("Turning volume up,sir")
+                    speak("Aumentando o volume, senhor")
                     volumeup()
-                elif "volume down" in query:
+                elif "abaixar volume" in query:
                     from keyboard import volumedown
-                    speak("Turning volume down, sir")
+                    speak("Abaixando o volume, senhor")
                     volumedown()
 
-                elif "open" in query:
+                elif "abrir o" in query:
                     from Dictapp import openappweb
                     openappweb(query)
-                elif "close" in query:
+                elif "fechar o" in query:
                     from Dictapp import closeappweb
                     closeappweb(query)
-
 
                 elif "google" in query:
                     from SearchNow import searchGoogle
@@ -264,7 +290,6 @@ if __name__ == "__main__":
                     from SearchNow import searchWikipedia
                     searchWikipedia(query)
 
-                
                 elif "news" in query:
                     from NewsRead import latestnews
                     latestnews()
@@ -279,42 +304,41 @@ if __name__ == "__main__":
                 elif "whatsapp" in query:
                     from Whatsapp import sendMessage
                     sendMessage()
-
-                
-
-                elif "temperature" in query:
-                    search = "temperature in delhi"
+                    
+                elif "temperatura" in query:
+                    search = "temperature in Manaus"
                     url = f"https://www.google.com/search?q={search}"
                     r  = requests.get(url)
                     data = BeautifulSoup(r.text,"html.parser")
                     temp = data.find("div", class_ = "BNeawe").text
                     speak(f"current{search} is {temp}")
+                    
                 elif "weather" in query:
-                    search = "temperature in delhi"
+                    search = "temperature in Manaus"
                     url = f"https://www.google.com/search?q={search}"
                     r  = requests.get(url)
                     data = BeautifulSoup(r.text,"html.parser")
                     temp = data.find("div", class_ = "BNeawe").text
                     speak(f"current{search} is {temp}")
 
-                elif "set an alarm" in query:
-                    print("input time example:- 10 and 10 and 10")
-                    speak("Set the time")
-                    a = input("Please tell the time :- ")
+                elif "salve um alarme" in query:
+                    print("Exemplo de entrada de tempo:- 10 and 10 and 10")
+                    speak("Defina o horário")
+                    a = input("Por favor, diga a hora :- ")
                     alarm(a)
-                    speak("Done,sir")
-                           
-                elif "the time" in query:
+                    speak("Feito, senhor")
+
+                elif "que horas são" in query:
                     strTime = datetime.datetime.now().strftime("%H:%M")    
-                    speak(f"Sir, the time is {strTime}")
-                elif "finally sleep" in query:
-                    speak("Going to sleep,sir")
+                    speak(f"Senhor, são {strTime}")
+                elif "finalmente dormir" in query:
+                    speak("Indo dormir, senhor")
                     exit()
 
-                elif "remember that" in query:
+                elif "lembrar disso" in query:
                     rememberMessage = query.replace("remember that","")
                     rememberMessage = query.replace("jarvis","")
-                    speak("You told me to remember that"+rememberMessage)
+                    speak(""+rememberMessage)
                     remember = open("Remember.txt","a")
                     remember.write(rememberMessage)
                     remember.close()
@@ -322,21 +346,22 @@ if __name__ == "__main__":
                     remember = open("Remember.txt","r")
                     speak("You told me to remember that" + remember.read())
 
-                elif "shutdown system" in query:
-                    speak("Are You sure you want to shutdown")
-                    shutdown = input("Do you wish to shutdown your computer? (yes/no)")
-                    if shutdown == "yes":
+                elif "desligar o sistema" in query:
+                    speak("Tem certeza de que deseja desligar?")
+                    shutdown = input("Deseja desligar seu computador? (sim/não)")
+                    if shutdown == "sim":
                         os.system("shutdown /s /t 1")
 
-                    elif shutdown == "no":
+                    elif shutdown == "não":
                         break
 
-                
-
-
-
-
-                
-
-
- 
+                for topic in relay_topics:
+                    alias = topic_aliases[topic]
+                    
+                if f"acender {alias}" in query:
+                    client.publish(topic, "1")
+                    speak(f"Ligando o {alias}")
+                    
+                elif f"apagar {alias}" in query:
+                    client.publish(topic, "0")
+                    speak(f"Apagando o {alias}")

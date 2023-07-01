@@ -2,11 +2,10 @@ import pyttsx3
 import speech_recognition
 import wolframalpha
 
-
 Assistant =pyttsx3.init('sapi5')
 voices = Assistant.getProperty('voices')
 print(voices)
-Assistant.setProperty('voices',voices[0].id)
+Assistant.setProperty('voices',voices[3].id)
 Assistant.setProperty('rate', 200 )
 
 def Speak(audio):
@@ -16,17 +15,15 @@ def Speak(audio):
     Assistant.runAndWait()
 
 def Wolfram(query):
-      api_key = "LR33QE-LUP5Q99YK4"
-      requester = wolframalpha.Client(api_key)
-      requested = requester.query(query)
+    api_key = "LR33QE-LUP5Q99YK4"
+    requester = wolframalpha.Client(api_key)
+    requested = requester.query(query)
 
-      try:
-        Answer = next(requested.results).text
-        return Answer
-      except:
-       Speak("Sorry sir but the value is not answerable!")
-
-
+    try:
+    Answer = next(requested.results).text
+    return Answer
+    except:
+    Speak("Sorry sir but the value is not answerable!")
 
 def calc(query):
     Term = str(query)

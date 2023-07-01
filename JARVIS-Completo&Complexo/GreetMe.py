@@ -3,8 +3,8 @@ import datetime
 
 engine = pyttsx3.init("sapi5")
 voices = engine.getProperty("voices")
-engine.setProperty("voice", voices[0].id)
-engine.setProperty("rate",200)
+engine.setProperty("voice", voices[3].id)
+engine.setProperty("rate",180)
 
 def speak(audio):
     engine.say(audio)
@@ -13,12 +13,12 @@ def speak(audio):
 def greetMe():
     hour  = int(datetime.datetime.now().hour)
     if hour>=0 and hour<=12:
-        speak("Good Morning,sir")
+        speak("Bom dia Senhor")
+        
     elif hour >12 and hour<=18:
-        speak("Good Afternoon ,sir")
+        speak("Boa tarde senhor")
 
     else:
-        speak("Good Evening,sir")
+        speak("Boa noite senhor")
 
-    speak("Please tell me, How can I help you ?")
-
+    speak("Por favor, diga-me Como posso ajduar o senhor ?")

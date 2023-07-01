@@ -1,6 +1,7 @@
 import time
 import datetime
 import ctypes,sys
+
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
@@ -18,7 +19,6 @@ if is_admin():
     host_path ='C:\Windows\System32\drivers\etc\hosts'
     redirect = '127.0.0.1'
 
-    
     print(current_time)
     time.sleep(2)
     website_list = ["www.facebook.com","facebook.com","www.instagram.com","instagram.com"]
@@ -34,7 +34,6 @@ if is_admin():
                     print("DONE")
                     time.sleep(1)
             print("FOCUS MODE TURNED ON !!!!")
-
 
     while True:     
         
@@ -59,6 +58,3 @@ if is_admin():
 
 else:
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-
-
-

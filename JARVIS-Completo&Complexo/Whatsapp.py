@@ -11,12 +11,13 @@ from datetime import datetime
 
 engine = pyttsx3.init("sapi5")
 voices = engine.getProperty("voices")
-engine.setProperty("voice", voices[0].id)
+engine.setProperty("voice", voices[3].id)
 rate = engine.setProperty("rate",170)
 
 def speak(audio):
     engine.say(audio)
     engine.runAndWait()
+    
 def takeCommand():
     r = speech_recognition.Recognizer()
     with speech_recognition.Microphone() as source:
@@ -27,7 +28,7 @@ def takeCommand():
 
     try:
         print("Understanding..")
-        query  = r.recognize_google(audio,language='en-in')
+        query  = r.recognize_google(audio,language='pt-BR')
         print(f"You Said: {query}\n")
     except Exception as e:
         print("Say that again")
@@ -47,4 +48,3 @@ def sendMessage():
         pywhatkit.sendwhatmsg("+91000000000",message,time_hour=strTime,time_min=update) #Enter The number here instead of +91000
     elif a==2:
         pass
-

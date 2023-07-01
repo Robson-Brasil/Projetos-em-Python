@@ -4,7 +4,7 @@ import random
 
 engine = pyttsx3.init('sapi5')
 voices = engine.getProperty('voices')
-engine.setProperty('voice', voices[0].id)
+engine.setProperty('voice', voices[3].id)
 engine.setProperty("rate", 170)
 
 def speak(audio):
@@ -21,7 +21,7 @@ def takeCommand():
 
     try:
         print("Recognizing..")
-        query = r.recognize_google(audio , language= 'en-in')
+        query = r.recognize_google(audio , language= 'pt-BR')
         print(f"You Said : {query}\n")
     except Exception as e:
         print("Say that again")
@@ -80,7 +80,3 @@ def game_play():
         i += 1
     
     print(f"FINAL SCORE :- ME :- {Me_score} : COM :- {Com_score}")
-    
-
-            
-
